@@ -1,4 +1,4 @@
-# Contrastive Geometry Project
+# Comp Neuro Research Project
 
 ### Overview
 Baseline and experimental code for SimCLR-based contrastive learning on an ImageNet-1k subset.  
