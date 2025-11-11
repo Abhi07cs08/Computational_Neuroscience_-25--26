@@ -1,9 +1,14 @@
-__pycache__/
-*.pt
-*.pth
-*.log
-logs/
-ckpts/
-.vscode/
+# env
 .venv/
-.DS_Store
+__pycache__/
+*.pyc
+
+# outputs (ignore contents, keep dir via .gitkeep)
+logs/**
+!logs/.gitkeep
+runs/**
+!runs/.gitkeep
+ckpts/**
+!ckpts/.gitkeep
+exp/**
+!exp/.gitkeep
