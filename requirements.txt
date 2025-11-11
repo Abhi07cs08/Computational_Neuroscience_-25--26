@@ -1,7 +1,12 @@
-torch
-torchvision
+torch>=2.2
+torchvision>=0.17
 numpy
 pandas
+tqdm
 matplotlib
 scikit-learn
-tqdm
+PyYAML
+botorch
+gpytorch
+ax-platform
+rich

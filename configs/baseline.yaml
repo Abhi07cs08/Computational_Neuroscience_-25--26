@@ -1,0 +1,22 @@
+data:
+  root: "~/datasets/imagenet1k_small"
+  img_size: 128
+  batch_size: 32
+  workers: 0
+  limit_train: 20000
+
+opt:
+  lr: 0.05
+  weight_decay: 1e-6
+  epochs: 5
+  accum_steps: 2
+  tau: 0.1
+  amp: false
+
+device:
+  prefer: ["mps", "cuda", "cpu"]
+
+log:
+  log_every: 50
+  outdir: "logs"
+  ckptdir: "ckpts/simclr"
