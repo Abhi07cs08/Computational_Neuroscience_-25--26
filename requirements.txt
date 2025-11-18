@@ -10,3 +10,5 @@ botorch
 gpytorch
 ax-platform
 rich
+kaggle
+scipy

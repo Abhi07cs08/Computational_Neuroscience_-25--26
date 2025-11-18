@@ -11,6 +11,7 @@ from src.losses.simclr import info_nce
 from torchvision import transforms, datasets
 import torch.nn.functional as F
 import numpy as np
+from src.losses.spectrum import spectral_loss
 
 @torch.no_grad()
 def knn_top1_fast(model, root, img_size=128, train_samples=2000, val_samples=500, batch=64):
@@ -115,6 +116,7 @@ def parse_args():
     ap.add_argument('--amp', action='store_true', help='Enable CUDA AMP only')
     ap.add_argument('--limit_train', type=int, default=2048, help='subset size for bring-up')
     ap.add_argument('--log_every', type=int, default=50)
+    ap.add_argument('--beta', type=float, default=1.0, help='weight for spectral loss')
     return ap.parse_args()
 
 
@@ -128,9 +130,11 @@ def main():
         device = 'cuda'
     else:
         device = 'cpu'
-
+    print("Using device:", device)
     # pin_memory is only useful on CUDA
     pin_memory = (device == 'cuda')
+
+    beta = args.beta
 
     train_dl = build_imagenet_loaders(
         root=args.imagenet_root,
@@ -155,8 +159,11 @@ def main():
     for epoch in range(1, args.epochs + 1):
         running = 0.0
         optimizer.zero_grad(set_to_none=True)
+        print(f"--- Epoch {epoch} ---")
 
         for it, (q, k) in enumerate(train_dl):
+            if it % 100 == 0:
+                print(f"batch {it+1}/{len(train_dl)}", end='\r')
             # keep tensors contiguous
             q = q.to(device, non_blocking=False).contiguous()
             k = k.to(device, non_blocking=False).contiguous()
@@ -170,6 +177,7 @@ def main():
             else:
                 z1 = model(q)
                 z2 = model(k)
+                # loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps + beta*spectral_loss(z1, device)[0] / args.accum_steps
                 loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps
                 loss.backward()
 

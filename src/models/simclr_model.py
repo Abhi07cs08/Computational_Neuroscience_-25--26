@@ -35,3 +35,26 @@ class SimCLR(nn.Module):
         z = self.proj(h)
         z = F.normalize(z, dim=1)
         return z
+    
+activations = {}
+def save_activation(name):
+    def hook(module, input, output):
+        activations[name] = output.detach()
+    return hook
+
+handles = []
+layers_to_hook = ['encoder.layer1', 'encoder.layer2', 'encoder.layer3', 'encoder.layer4']
+def register_hooks(model):
+    for layer_name in layers_to_hook:
+        layer = dict([*model.named_modules()])[layer_name]
+        handle = layer.register_forward_hook(save_activation(layer_name))
+        handles.append(handle)
+
+if __name__ == "__main__":
+    model = SimCLR()
+    # register_hooks(model)
+    for name, param in model.named_parameters():
+        print(name, param.shape)
+    x = torch.randn(4, 3, 128, 128)
+    z = model(x)
+    print(z.shape)
