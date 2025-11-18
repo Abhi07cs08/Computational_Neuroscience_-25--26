@@ -19,8 +19,8 @@
 - confirmed spectral losses's effectivity in bringing spectrum to 1, although the differnce is not major, presumably baecause the model's natural spectrum is already around higher than 1 (for such a simple model). However, spectrum at val/train divergence is significantly lower than when spectrum is not modulated.
 - cifar100 is slow but will possibly try
 
-![alt text](image-1.png)
-![alt text](image.png)
+![alt text](figures/neural_data_spectrum_13112025.png)
+![alt text](figures/fashionmnist_spectralloss_13112025.png)
 
 ### 13/11/2025-27/11/2025
 #### TODO 
