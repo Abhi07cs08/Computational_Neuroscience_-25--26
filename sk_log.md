@@ -27,11 +27,15 @@
 1. ~~implement F&R EV~~ (18/11/2025)
 2. integrate spectral loss with SimCLR
 3. **F&R EV for SimCLR**
-4. **Setup working envo with repo and transfer work**
+4. ~~Setup working envo with repo and transfer work~~
 
 #### Log
 ##### 18/11/2025
 - created functions to compute F, R and BPI EV of model for a given brainscore benchmark
 - useful commands
-    - **run** ```source .venv/bin/activate``` to activate virtual env
-    - **run** ```export PYTHONPATH="$PWD"```to add src dir to discoverable packages
+    - run ```source .venv/bin/activate``` to activate virtual env
+    - run ```export PYTHONPATH="$PWD"```to add src dir to discoverable packages
+
+##### 19/11/2025
+- reinstalling venv with python 3.11 and the installing brainscore repo in root directory (by cloning, not using package). doesnt work otherwise
+- made brainscore and my notebook compatible with our repo

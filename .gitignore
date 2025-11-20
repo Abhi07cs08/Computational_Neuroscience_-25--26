@@ -12,3 +12,8 @@ ckpts/**
 !ckpts/.gitkeep
 exp/**
 !exp/.gitkeep
+
+.venv-py311
+imagenet1k/
+train_val/
+vision/
