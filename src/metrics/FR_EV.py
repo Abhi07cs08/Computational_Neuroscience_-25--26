@@ -78,13 +78,13 @@ def filter_reliable(benchmark_name= "MajajHong2015.public", reliability_threshol
     mask = r>=0.7
     r = np.where(mask, r, np.nan)
     # print(r)
-    bool_mask = np.isnan(r)
+    bool_mask = np.isfinite(r)
     # print(bool_mask)
     # print(mask)
     r_mean = r[r>=reliability_threshold].mean()
     r_means = r[r>=reliability_threshold]
     # print(r_mean)
-    return bool_mask, r_mean, r_means
+    return mask, r_mean, r_means
 
 class NeuralDataStimuli(Dataset):
     def __init__(self, benchmark_assembly, trnsfrms=None):
@@ -254,15 +254,15 @@ def F_R_EV(benchmark, model, activation_layer="fc1", alpha=1, transforms=None, n
         # else:
         #     F_EV = ev(n_test_filtered, neural_pred)
         #     # R_EV = ev(model_activations_test, model_pred)
-        F_train_EV = predictivity(n_train_filtered, clf_F.predict(m_train), rho_xx=r_mean, rho_yy=1.0).mean()
-        R_train_EV = predictivity(m_train, clf_R.predict(n_train_filtered), rho_xx=1.0, rho_yy=1.0).mean()
-        F_EV = predictivity(n_test_filtered, neural_pred, rho_xx=r_mean, rho_yy=1.0).mean()
-        R_EV = predictivity(m_test, model_pred, rho_xx=1.0, rho_yy=1.0).mean()
-        # print(n_test_filtered.shape, neural_pred.shape, r_means.shape)
-        # F_train_EV = predictivity(n_train_filtered, clf_F.predict(m_train), rho_xx=r_means, rho_yy=1.0).mean()
+        # F_train_EV = predictivity(n_train_filtered, clf_F.predict(m_train), rho_xx=r_mean, rho_yy=1.0).mean()
         # R_train_EV = predictivity(m_train, clf_R.predict(n_train_filtered), rho_xx=1.0, rho_yy=1.0).mean()
-        # F_EV = predictivity(n_test_filtered, neural_pred, rho_xx=r_means, rho_yy=1.0).mean()
+        # F_EV = predictivity(n_test_filtered, neural_pred, rho_xx=r_mean, rho_yy=1.0).mean()
         # R_EV = predictivity(m_test, model_pred, rho_xx=1.0, rho_yy=1.0).mean()
+        # print(n_test_filtered.shape, neural_pred.shape, r_means.shape)
+        F_train_EV = predictivity(n_train_filtered, clf_F.predict(m_train), rho_xx=r_means, rho_yy=1.0).mean()
+        R_train_EV = predictivity(m_train, clf_R.predict(n_train_filtered), rho_xx=1.0, rho_yy=1.0).mean()
+        F_EV = predictivity(n_test_filtered, neural_pred, rho_xx=r_means, rho_yy=1.0).mean()
+        R_EV = predictivity(m_test, model_pred, rho_xx=1.0, rho_yy=1.0).mean()
 
         F_EV_list.append(F_EV)
         R_EV_list.append(R_EV)
@@ -316,8 +316,8 @@ if __name__ == "__main__":
 
     # EV_score = F_R_EV(benchmark, cnn, activation_layer="fc1", alpha=0.1, transforms=stimuli_transform, reliability_threshold=0.7)
     # print(EV_score)
-    EV_score_resnet_50 = F_R_EV(benchmark, model, activation_layer="layer4", alpha=5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
+    EV_score_resnet_50 = F_R_EV(benchmark, model, activation_layer="layer4", alpha=100, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
     print(EV_score_resnet_50)
 
-    EV_score_resnet = F_R_EV(benchmark, resnet18, activation_layer="layer4.0.bn1", alpha=5, transforms=three_channel_transform, reliability_threshold=0.7)
+    EV_score_resnet = F_R_EV(benchmark, resnet18, activation_layer="layer4.0.bn1", alpha=0.1, transforms=three_channel_transform, reliability_threshold=0.7)
     print(EV_score_resnet)
