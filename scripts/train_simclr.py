@@ -131,6 +131,7 @@ def parse_args():
     ap.add_argument('--limit_train', type=int, default=2048, help='subset size for bring-up')
     ap.add_argument('--log_every', type=int, default=50)
     ap.add_argument('--beta', type=float, default=1.0, help='weight for spectral loss')
+    ap.add_argument('--save_dir', type=str, default=False, help='dir to save logs and models')
     return ap.parse_args()
 
 def main():
@@ -148,6 +149,11 @@ def main():
     pin_memory = (device == 'cuda')
 
     beta = args.beta
+
+    save_dir = args.save_dir
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+
 
 
     train_dl = build_imagenet_loaders(
@@ -249,8 +255,8 @@ def main():
             "opt": optimizer.state_dict(),
             "args": vars(args),
         }
-        os.makedirs("ckpts/simclr", exist_ok=True)
-        torch.save(ckpt, f"ckpts/simclr/e{epoch:03d}.pt")
+        os.makedirs(f"{save_dir}/ckpts/simclr", exist_ok=True) if save_dir else os.makedirs("ckpts/simclr", exist_ok=True)
+        torch.save(ckpt, f"{save_dir}/ckpts/simclr/e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/e{epoch:03d}.pt")
 
         # alpha = fetch_alpha(model, val_dl, activationclass.activations["encoder.layer4"], device=device)
         alpha = np.mean(alphas_train)
@@ -270,8 +276,8 @@ def main():
 
 
 
-        os.makedirs("logs", exist_ok=True)
-        log_path = "logs/simclr_baseline.csv"
+        os.makedirs(f"{save_dir}/logs", exist_ok=True) if save_dir else os.makedirs("logs", exist_ok=True)
+        log_path = f"{save_dir}/logs/simclr_baseline.csv" if save_dir else "logs/simclr_baseline.csv"
         header = ["ts","epoch","tau","batch_size","img_size","accum_steps","lr",
                 "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta"]
         row = [int(time.time()), epoch, args.tau, args.batch_size, args.img_size,
