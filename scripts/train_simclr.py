@@ -5,13 +5,15 @@ from torch import optim
 from torch.amp import GradScaler, autocast
 import csv, time, os
 
-from src.datamod.imagenet_ssl import build_imagenet_loaders
+from src.datamod.imagenet_ssl import build_imagenet_loaders, build_imagenet_val_loader
 from src.models.simclr_model import SimCLR
 from src.losses.simclr import info_nce
+from src.losses.spectral_loss import spectral_loss
+from src.utils.model_activations import ModelActivations
 from torchvision import transforms, datasets
 import torch.nn.functional as F
 import numpy as np
-from src.losses.spectrum import spectral_loss
+from src.metrics.fetch_spectrum import fetch_spectrum_pca, fit_power_law
 
 @torch.no_grad()
 def knn_top1_fast(model, root, img_size=128, train_samples=2000, val_samples=500, batch=64):
@@ -101,6 +103,18 @@ def spectrum_probe(model, dl, batches=4):
     pr  = (eig.sum()**2) / ( (eig**2).sum() + 1e-12)
     return float(pr), eig[0], eig[-1]
 
+def fetch_alpha(model, dl, act, device="cuda"):
+
+        alphas = []
+
+        for batch in dl:
+            _ = model(batch.to(device))
+            var_ratio, _ = fetch_spectrum_pca(act, device)
+            alpha = fit_power_law(var_ratio)[0][0]
+            alphas.append(alpha)
+
+        mean_alpha = np.mean(alphas)
+        return mean_alpha
 
 def parse_args():
     ap = argparse.ArgumentParser()
@@ -119,7 +133,6 @@ def parse_args():
     ap.add_argument('--beta', type=float, default=1.0, help='weight for spectral loss')
     return ap.parse_args()
 
-
 def main():
     args = parse_args()
 
@@ -136,6 +149,7 @@ def main():
 
     beta = args.beta
 
+
     train_dl = build_imagenet_loaders(
         root=args.imagenet_root,
         batch_size=args.batch_size,
@@ -145,7 +159,19 @@ def main():
         limit_train=args.limit_train,
     )
 
+    val_dl = build_imagenet_val_loader(
+        root=args.imagenet_root,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        img_size=args.img_size,
+        pin_memory=pin_memory,
+    )
+
     model = SimCLR(out_dim=128).to(device)
+
+    activationclass = ModelActivations(model, layers=["encoder.layer4", "encoder.layer4.2.bn1.weight", "encoder.layer4.2.bn2.weight"])
+    activationclass.register_hooks()
+
 
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd
@@ -160,10 +186,11 @@ def main():
         running = 0.0
         optimizer.zero_grad(set_to_none=True)
         print(f"--- Epoch {epoch} ---")
-
+        alphas_train = []
         for it, (q, k) in enumerate(train_dl):
-            if it % 100 == 0:
-                print(f"batch {it+1}/{len(train_dl)}", end='\r')
+            # if it >=1:
+            #     break
+            print(f"batch {it+1}/{len(train_dl)}", end='\r')
             # keep tensors contiguous
             q = q.to(device, non_blocking=False).contiguous()
             k = k.to(device, non_blocking=False).contiguous()
@@ -172,14 +199,36 @@ def main():
                 with autocast('cuda'):
                     z1 = model(q)
                     z2 = model(k)
-                    loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                    l1 =  info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                    a, l2 = spectral_loss(activationclass.activations["encoder.layer4"], device)
+
+                    loss = l1 + beta*l2
                 scaler.scale(loss).backward()
             else:
                 z1 = model(q)
                 z2 = model(k)
-                # loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps + beta*spectral_loss(z1, device)[0] / args.accum_steps
-                loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                l1 =  info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                acts = activationclass.activations["encoder.layer4"]
+                # acts.retain_grad()
+
+                a, l2 = spectral_loss(acts, device)
+                alphas_train.append(a.item())
+
+                # print("acts.requires_grad:", acts.requires_grad)
+                # print("acts.grad_fn:", acts.grad_fn)
+
+                # print("l2.requires_grad:", l2.requires_grad)
+                # print("l2.grad_fn:", l2.grad_fn)
+                # print("l2:", l2)
+                # print("requires_grad:", l2.requires_grad)
+                # print("grad_fn:", l2.grad_fn)
+
+                loss = l1 + beta*l2
+                print(f"Iter {it+1} | InfoNCE Loss: {l1.item():.4f} | Spectral Loss: {l2.item():.4f} | alpha: {a.item():.4f}")
+                # loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps + beta*spectral_loss(activationclass.activations["encoder.layer4.2.bn3.weight"], device)
+                # loss = info_nce(z1, z2, tau=args.tau) / args.accum_steps
                 loss.backward()
+
 
             if (it + 1) % args.accum_steps == 0:
                 if amp_enabled:
@@ -203,21 +252,30 @@ def main():
         os.makedirs("ckpts/simclr", exist_ok=True)
         torch.save(ckpt, f"ckpts/simclr/e{epoch:03d}.pt")
 
+        # alpha = fetch_alpha(model, val_dl, activationclass.activations["encoder.layer4"], device=device)
+        alpha = np.mean(alphas_train)
+        print(f"epoch {epoch} | Layer4 alpha: {alpha:.3f}")
+
         avg = running / max(1, len(train_dl))
         print(f"epoch {epoch} | avg loss {avg:.4f}")
+
         top1 = knn_top1_fast(model, args.imagenet_root, img_size=args.img_size,
                             train_samples=2000, val_samples=500, batch=64)
         print(f"epoch {epoch} | 1-NN top1 ~ {top1:.1f}%")
+
         pr, lam1, lam_min = spectrum_probe(model, train_dl, batches=2)
         print(f"epoch {epoch} | PR {pr:.1f} | lam1 {lam1:.3g} | lam_min {lam_min:.3g}")
+
+
+
 
 
         os.makedirs("logs", exist_ok=True)
         log_path = "logs/simclr_baseline.csv"
         header = ["ts","epoch","tau","batch_size","img_size","accum_steps","lr",
-                "loss","knn_top1","PR","lam1","lam_min","limit_train","device"]
+                "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta"]
         row = [int(time.time()), epoch, args.tau, args.batch_size, args.img_size,
-            args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device]
+            args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device, alpha, beta]
         write_header = not os.path.exists(log_path)
         with open(log_path, "a", newline="") as f:
             w = csv.writer(f)

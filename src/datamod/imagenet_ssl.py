@@ -3,9 +3,10 @@ import warnings
 import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import ImageFolder
-from .twocrops import TwoCropsTransform, simclr_transform
+from src.datamod.twocrops import TwoCropsTransform, simclr_transform
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True  # prevents hang on bad JPEGs
+from torchvision import transforms
 
 
 # Safe collate to drop None samples
@@ -69,3 +70,43 @@ def build_imagenet_loaders(
         collate_fn=_safe_collate,
     )
     return dl
+
+def build_imagenet_val_loader(
+    root,
+    batch_size=256,
+    workers=0,
+    img_size=224,
+    pin_memory=False,
+    limit_val=None,
+):
+    """
+    Args:
+        root: path to dataset root (expects /val folder)
+        batch_size: int
+        workers: int
+        img_size: resize crop
+        pin_memory: bool (True only for CUDA)
+        limit_val: int or None, number of samples to load for bring-up
+    """
+    t = transforms.Compose([transforms.ToTensor(),])
+    val_path = os.path.join(root, "val")
+    dataset = SafeImageFolder(root=val_path, transform=t)
+
+
+    dl = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=workers,
+        pin_memory=pin_memory,
+        drop_last=False,
+    )
+    return dl
+
+
+if __name__ == "__main__":
+    dl = build_imagenet_val_loader("train_val")
+    x = next(iter(dl))
+    print(len(x))
+    print(type(x))
+    print(x[0].shape, x[1].shape)

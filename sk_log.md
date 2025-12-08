@@ -10,7 +10,6 @@
 3. ~~create diff spectral loss~~
 4. ~~train basic model with spectral loss~~
 
-
 #### Log
 - encountering problems with brainscore
 - trained basic CNN on fashionmnist
@@ -27,7 +26,7 @@
 1. ~~implement F&R EV~~ (18/11/2025)
 2. integrate spectral loss with SimCLR
 3. **F&R EV for SimCLR**
-4. ~~Setup working envo with repo and transfer work~~
+4. ~~Setup working envo with repo and transfer work~~ (19/11/2025)
 
 #### Log
 ##### 18/11/2025
@@ -38,4 +37,7 @@
 
 ##### 19/11/2025
 - reinstalling venv with python 3.11 and the installing brainscore repo in root directory (by cloning, not using package). doesnt work otherwise
-- made brainscore and my notebook compatible with our repo
+- made brainscore and my notebook compatible with our repo#####
+
+##### 20/11/2025
+- FR EV & R2 score negative. it used to be that accuracy on initial trained data neared 100 from the ridge regression. now its at around 23%, and for unseen data after cross val it is negative. cannot make it positive. normalizing doesnt seem to help. 23% agnostic to alpha parameter. 5 fold stratified split. averaged model activations of 4 dim to get 2 dim and make it smaller

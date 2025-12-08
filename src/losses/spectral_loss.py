@@ -20,4 +20,4 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     slope = (y * x).mean(dim=-1) / (x.pow(2).mean() + eps)
     alpha = -slope
     loss_value = (alpha - target_alpha).abs().mean()
-    return loss_value if device is None else loss_value.to(device)
+    return loss_value if device is None else loss_value.to(device), alpha

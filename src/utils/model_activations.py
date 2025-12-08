@@ -7,7 +7,15 @@ class ModelActivations:
 
     def _save_activation(self, name):
             def hook(module, inp, out):
-                self.activations[name] = out.detach()
+                # store a detached tensor to avoid keeping computation graph
+                try:
+                    self.activations[name] = out.detach()
+                except Exception:
+                    # out might be a tuple (e.g., some modules); try to detach each element
+                    if isinstance(out, (list, tuple)):
+                        self.activations[name] = tuple(o.detach() if hasattr(o, 'detach') else o for o in out)
+                    else:
+                        self.activations[name] = out
             return hook
     
     def register_hooks(self, layer=None):
@@ -22,6 +30,7 @@ class ModelActivations:
                 if name in self.layers:
                     handle = module.register_forward_hook(self._save_activation(name))
                     self.handles.append(handle)
+                    print(f"Registered hook for layer: {name}")
 
     def fetch_activations(self, layer_name):
         return self.activations.get(layer_name, None)
