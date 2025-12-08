@@ -22,6 +22,7 @@ os.makedirs(dst_train, exist_ok=True)
 os.makedirs(dst_val, exist_ok=True)
 
 for class_name in os.listdir(src_root):
+    print(f"Processing class: {class_name}")
     class_path = os.path.join(src_root, class_name)
     if not os.path.isdir(class_path):
         continue
