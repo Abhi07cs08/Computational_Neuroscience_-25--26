@@ -1,6 +1,6 @@
 torch>=2.2
 torchvision>=0.17
-numpy
+numpy<2
 pandas
 tqdm
 matplotlib
