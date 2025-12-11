@@ -131,7 +131,8 @@ def parse_args():
     ap.add_argument('--limit_train', type=int, default=2048, help='subset size for bring-up')
     ap.add_argument('--log_every', type=int, default=50)
     ap.add_argument('--beta', type=float, default=1.0, help='weight for spectral loss')
-    ap.add_argument('--save_dir', type=str, default=False, help='dir to save logs and models')
+    ap.add_argument('--save_dir', type=str, default=False, help='' \
+    'dir to save logs and models')
     return ap.parse_args()
 
 def main():
