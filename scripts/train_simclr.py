@@ -265,6 +265,9 @@ def main():
             if (it + 1) % args.log_every == 0:
                 print(f"epoch {epoch} | iter {it+1}/{len(train_dl)} | loss {running / (it+1):.4f}")
         # --- save checkpoint ---
+        # ts = time.strftime("%Y%m%d-%H%M%S")
+        ts = int(time.time())
+
         ckpt = {
             "epoch": epoch,
             "model": model.state_dict(),
@@ -272,7 +275,7 @@ def main():
             "args": vars(args),
         }
         os.makedirs(f"{save_dir}/ckpts/simclr", exist_ok=True) if save_dir else os.makedirs("ckpts/simclr", exist_ok=True)
-        torch.save(ckpt, f"{save_dir}/ckpts/simclr/e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/e{epoch:03d}.pt")
+        torch.save(ckpt, f"{save_dir}/ckpts/simclr/ts{ts}_e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/ts{ts}_e{epoch:03d}.pt")
 
         alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
         # alpha = np.mean(alphas_train)
@@ -305,7 +308,7 @@ def main():
         log_path = f"{save_dir}/logs/simclr_baseline.csv" if save_dir else "logs/simclr_baseline.csv"
         header = ["ts","epoch","tau","batch_size","img_size","accum_steps","lr",
                 "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta", "BPI", "F_EV", "R_EV"]
-        row = [int(time.time()), epoch, args.tau, args.batch_size, args.img_size,
+        row = [ts, epoch, args.tau, args.batch_size, args.img_size,
             args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device, alpha, beta, bpi, f_ev, r_ev]
         write_header = not os.path.exists(log_path)
         with open(log_path, "a", newline="") as f:
