@@ -92,6 +92,10 @@ def build_imagenet_val_loader(
     val_path = os.path.join(root, "val")
     dataset = SafeImageFolder(root=val_path, transform=t)
 
+    if limit_val is not None and limit_val < len(dataset):
+        indices = list(range(limit_val))
+        dataset = Subset(dataset, indices)
+
 
     dl = DataLoader(
         dataset,

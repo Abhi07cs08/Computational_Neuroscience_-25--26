@@ -4,16 +4,15 @@ import torch
 from torch import optim
 from torch.amp import GradScaler, autocast
 import csv, time, os
-
 from src.datamod.imagenet_ssl import build_imagenet_loaders, build_imagenet_val_loader
 from src.models.simclr_model import SimCLR
 from src.losses.simclr import info_nce
-from src.losses.spectral_loss import spectral_loss
+from src.losses.spectral_loss import spectral_loss, just_alpha
 from src.utils.model_activations import ModelActivations
 from torchvision import transforms, datasets
 import torch.nn.functional as F
 import numpy as np
-from src.metrics.fetch_spectrum import fetch_spectrum_pca, fit_power_law
+# from src.metrics.fetch_spectrum import fetch_spectrum_pca, fit_power_law
 
 @torch.no_grad()
 def knn_top1_fast(model, root, img_size=128, train_samples=2000, val_samples=500, batch=64):
@@ -104,13 +103,13 @@ def spectrum_probe(model, dl, batches=4):
     return float(pr), eig[0], eig[-1]
 
 def fetch_alpha(model, dl, act, device="cuda"):
-
         alphas = []
-
         for batch in dl:
             _ = model(batch.to(device))
-            var_ratio, _ = fetch_spectrum_pca(act, device)
-            alpha = fit_power_law(var_ratio)[0][0]
+            # var_ratio, _ = fetch_spectrum_pca(act, device)
+            # alpha = fit_power_law(var_ratio)[0][0]
+            alpha = just_alpha(act, device=device)
+            alpha = alpha.cpu().item()
             alphas.append(alpha)
 
         mean_alpha = np.mean(alphas)
@@ -129,10 +128,15 @@ def parse_args():
     ap.add_argument('--wd', type=float, default=1e-6)
     ap.add_argument('--amp', action='store_true', help='Enable CUDA AMP only')
     ap.add_argument('--limit_train', type=int, default=2048, help='subset size for bring-up')
+    ap.add_argument('--limit_val', type=int, default=None, help='subset size for bring-up')
     ap.add_argument('--log_every', type=int, default=50)
-    ap.add_argument('--beta', type=float, default=1.0, help='weight for spectral loss')
-    ap.add_argument('--save_dir', type=str, default=False, help='' \
-    'dir to save logs and models')
+    ap.add_argument('--save_dir', type=str, default=False, help='dir to save logs and models')
+    ap.add_argument('--skip_knn_metric', type=bool, default=False)
+    ap.add_argument('--skip_alpha_metric', type=bool, default=False)
+    ap.add_argument('--skip_spectrum_metric', type=bool, default=False)
+    ap.add_argument('--spectral_loss_coeff', type=float, default=0.0)
+    ap.add_argument('--neural_ev', type =bool, default=False, help='evaluate neural predictivity at each epoch')
+    ap.add_argument('--neural_ev_layer', type=str, default='encoder.layer4.0.bn1', help='which layer to use for neural predictivity')    
     return ap.parse_args()
 
 def main():
@@ -149,13 +153,21 @@ def main():
     # pin_memory is only useful on CUDA
     pin_memory = (device == 'cuda')
 
-    beta = args.beta
+    beta = args.spectral_loss_coeff
+    skip_knn = args.skip_knn_metric
+    skip_spectrum = args.skip_spectrum_metric
+    skip_alpha = args.skip_alpha_metric
+    neural_ev = args.neural_ev
+    if neural_ev:
+        from src.metrics.FR_EV import F_R_EV, stimuli_transform, three_channel_transform
+    neural_ev_layer = args.neural_ev_layer
 
     save_dir = args.save_dir
     if save_dir:
         os.makedirs(save_dir, exist_ok=True)
 
-
+    print(f'beta (spectral loss coeff): {beta}')
+    print(f'skip_knn: {bool(skip_knn)}, skip_spectrum: {bool(skip_spectrum)}, skip_alpha: {bool(skip_alpha)}, neural_ev: {bool(neural_ev)} at layer {neural_ev_layer}')
 
     train_dl = build_imagenet_loaders(
         root=args.imagenet_root,
@@ -172,11 +184,12 @@ def main():
         workers=args.workers,
         img_size=args.img_size,
         pin_memory=pin_memory,
+        limit_val=args.limit_val,
     )
 
     model = SimCLR(out_dim=128).to(device)
 
-    activationclass = ModelActivations(model, layers=["encoder.layer4", "encoder.layer4.2.bn1.weight", "encoder.layer4.2.bn2.weight"])
+    activationclass = ModelActivations(model, layers=[neural_ev_layer])
     activationclass.register_hooks()
 
 
@@ -207,7 +220,8 @@ def main():
                     z1 = model(q)
                     z2 = model(k)
                     l1 =  info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                    a, l2 = spectral_loss(activationclass.activations["encoder.layer4"], device)
+                    a, l2 = spectral_loss(activationclass.activations[neural_ev_layer], device) if args.spectral_loss_coeff != 0.0 else (0.0, 0.0)
+
 
                     loss = l1 + beta*l2
                 scaler.scale(loss).backward()
@@ -215,11 +229,12 @@ def main():
                 z1 = model(q)
                 z2 = model(k)
                 l1 =  info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                acts = activationclass.activations["encoder.layer4"]
+                acts = activationclass.activations[neural_ev_layer]
                 # acts.retain_grad()
 
-                a, l2 = spectral_loss(acts, device)
-                alphas_train.append(a.item())
+                a, l2 = spectral_loss(acts, device) if args.spectral_loss_coeff != 0.0 else (0.0, 0.0)
+                if a != 0.0:
+                    alphas_train.append(a.item())
 
                 # print("acts.requires_grad:", acts.requires_grad)
                 # print("acts.grad_fn:", acts.grad_fn)
@@ -259,19 +274,28 @@ def main():
         os.makedirs(f"{save_dir}/ckpts/simclr", exist_ok=True) if save_dir else os.makedirs("ckpts/simclr", exist_ok=True)
         torch.save(ckpt, f"{save_dir}/ckpts/simclr/e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/e{epoch:03d}.pt")
 
-        # alpha = fetch_alpha(model, val_dl, activationclass.activations["encoder.layer4"], device=device)
-        alpha = np.mean(alphas_train)
+        alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
+        # alpha = np.mean(alphas_train)
         print(f"epoch {epoch} | Layer4 alpha: {alpha:.3f}")
 
         avg = running / max(1, len(train_dl))
         print(f"epoch {epoch} | avg loss {avg:.4f}")
 
         top1 = knn_top1_fast(model, args.imagenet_root, img_size=args.img_size,
-                            train_samples=2000, val_samples=500, batch=64)
+                            train_samples=2000, val_samples=500, batch=64) if not skip_knn else 0.0
         print(f"epoch {epoch} | 1-NN top1 ~ {top1:.1f}%")
 
-        pr, lam1, lam_min = spectrum_probe(model, train_dl, batches=2)
+        pr, lam1, lam_min = spectrum_probe(model, train_dl, batches=2) if not skip_spectrum else (0.0, 0.0, 0.0)
         print(f"epoch {epoch} | PR {pr:.1f} | lam1 {lam1:.3g} | lam_min {lam_min:.3g}")
+
+        if neural_ev:
+            ev_dict = F_R_EV(model, activation_layer=neural_ev_layer, alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4) 
+        else:
+            ev_dict = {'BPI': 0.0, 'F_EV': 0.0, 'R_EV': 0.0}
+        bpi = ev_dict['BPI']
+        f_ev = ev_dict['F_EV']
+        r_ev = ev_dict['R_EV']
+        print(f"epoch {epoch} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
 
 
 
@@ -280,9 +304,9 @@ def main():
         os.makedirs(f"{save_dir}/logs", exist_ok=True) if save_dir else os.makedirs("logs", exist_ok=True)
         log_path = f"{save_dir}/logs/simclr_baseline.csv" if save_dir else "logs/simclr_baseline.csv"
         header = ["ts","epoch","tau","batch_size","img_size","accum_steps","lr",
-                "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta"]
+                "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta", "BPI", "F_EV", "R_EV"]
         row = [int(time.time()), epoch, args.tau, args.batch_size, args.img_size,
-            args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device, alpha, beta]
+            args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device, alpha, beta, bpi, f_ev, r_ev]
         write_header = not os.path.exists(log_path)
         with open(log_path, "a", newline="") as f:
             w = csv.writer(f)
