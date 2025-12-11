@@ -5,8 +5,6 @@
 #SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=8
 
-JOBID=$SLURM_JOB_ID
-
 export PYTHONPATH=$PWD
 
 source ~/CompNeuro/Computational_Neuroscience_-25--26/.venv/bin/activate
