@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=192
 #SBATCH --time 02:00:00
-#SBATCH --output=python_output_%j.txt
+#SBATCH --output=$SCRATCH/new_logs/python_output_%j.txt
 #SBATCH --mail-type=BEGIN,END,FAIL,ALL
 #SBATCH --mail-user=samuel.kostousov@gmail.com
 
