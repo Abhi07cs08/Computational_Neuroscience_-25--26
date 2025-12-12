@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=192
+#SBATCH --ntasks=1
 #SBATCH --time 02:00:00
 #SBATCH --output=basic_simclr_output_%j.txt
 #SBATCH --nodes=1
