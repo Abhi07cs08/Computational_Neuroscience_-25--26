@@ -220,7 +220,7 @@ def main():
                     z1 = model(q)
                     z2 = model(k)
                     l1 =  info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                    a, l2 = spectral_loss(activationclass.activations[neural_ev_layer], device) if args.spectral_loss_coeff != 0.0 else (0.0, 0.0)
+                    a, l2 = spectral_loss(activationclass.activations[neural_ev_layer], device) if args.spectral_loss_coeff != 0.0 else (torch.tensor(0.0), torch.tensor(0.0))
 
 
                     loss = l1 + beta*l2
@@ -232,8 +232,8 @@ def main():
                 acts = activationclass.activations[neural_ev_layer]
                 # acts.retain_grad()
 
-                a, l2 = spectral_loss(acts, device) if args.spectral_loss_coeff != 0.0 else (0.0, 0.0)
-                if a != 0.0:
+                a, l2 = spectral_loss(acts, device) if args.spectral_loss_coeff != 0.0 else (torch.tensor(0.0), torch.tensor(0.0))
+                if a.item() != 0.0:
                     alphas_train.append(a.item())
 
                 # print("acts.requires_grad:", acts.requires_grad)
