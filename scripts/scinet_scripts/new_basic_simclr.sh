@@ -21,4 +21,4 @@ export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":
 
 
 # Run the Python script
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size 32 --epochs 1 --save_dir /scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/new_logs --skip_knn_metric True --skip_spectrum_metric True --spectral_loss_coeff 0.1 --limit_train 32 --limit_val 32
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size 256 --epochs 100 --save_dir /scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/new_logs --skip_knn_metric True --skip_spectrum_metric True --spectral_loss_coeff 0.1
