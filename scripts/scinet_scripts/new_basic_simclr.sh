@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time 02:00:00
+#SBATCH --time 24:00:00
 #SBATCH --output=basic_simclr_output_%j.txt
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
