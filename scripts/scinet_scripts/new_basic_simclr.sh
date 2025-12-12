@@ -17,6 +17,7 @@ module load opencv/4.11.0
 # Activate virtual environment if needed
 source $HOME/CompNeuro/Computational_Neuroscience_-25--26/.venv/bin/activate
 export PYTHONPATH=$PWD
+export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":$PYTHONPATH
 
 
 # Run the Python script
