@@ -1,6 +1,5 @@
 # Adapted
 
-
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -14,6 +13,7 @@ from scipy.stats import pearsonr
 import numpy as np
 from scipy import stats
 import pandas as pd
+import brainscore_vision
 
 def predictivity(x, y, rho_xx, rho_yy):
     assert x.shape == y.shape, "Input and prediction shapes must match"
@@ -339,7 +339,6 @@ three_channel_transform = transforms.Compose([
 if __name__ == "__main__":
 
     from src.models.basic_cnn import BasicCNN
-    import brainscore_vision
     from torchvision import transforms
     from  torchvision import models
 
