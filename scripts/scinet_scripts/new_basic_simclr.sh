@@ -3,6 +3,8 @@
 #SBATCH --ntasks-per-node=192
 #SBATCH --time 02:00:00
 #SBATCH --output=basic_simclr_output_%j.txt
+#SBATCH --partition=compute_full_node
+#SBATCH --gpus-per-node=1
 #SBATCH --mail-type=BEGIN,END,FAIL,ALL
 #SBATCH --mail-user=samuel.kostousov@gmail.com
 
