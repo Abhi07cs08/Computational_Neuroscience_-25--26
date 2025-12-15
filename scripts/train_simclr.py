@@ -12,6 +12,8 @@ from src.utils.model_activations import ModelActivations
 from torchvision import transforms, datasets
 import torch.nn.functional as F
 import numpy as np
+from src.metrics.FR_EV_offline import F_R_EV, stimuli_transform, three_channel_transform
+   
 # from src.metrics.fetch_spectrum import fetch_spectrum_pca, fit_power_law
 
 @torch.no_grad()
@@ -158,8 +160,6 @@ def main():
     skip_spectrum = args.skip_spectrum_metric
     skip_alpha = args.skip_alpha_metric
     neural_ev = args.neural_ev
-    if neural_ev:
-        from src.metrics.FR_EV import F_R_EV, stimuli_transform, three_channel_transform
     neural_ev_layer = args.neural_ev_layer
 
     save_dir = args.save_dir
