@@ -23,6 +23,7 @@ spectral_loss_coeff="${1-0.0}"
 epochs="${2-100}"
 batch_size="${3-32}"
 neural_ev="${4-False}"
+log_folder_name ="${5-basic_simclr_logs}"
 if [ "$neural_ev" == "True" ]; then
     neural_ev_arg="--neural_ev True"
 else
@@ -32,4 +33,4 @@ fi
 echo "Arguments: spectral_loss_coeff=$spectral_loss_coeff epochs=$epochs batch_size=$batch_size neural_ev=$neural_ev"
 
 # Run the Python script
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir /scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/new_logs --skip_knn_metric True --skip_spectrum_metric True --spectral_loss_coeff $spectral_loss_coeff $neural_ev_arg
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir /scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/$log_folder_name --skip_knn_metric True --skip_spectrum_metric True --spectral_loss_coeff $spectral_loss_coeff $neural_ev_arg
