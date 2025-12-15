@@ -54,8 +54,8 @@ def split_half_reliability(X, n_splits=100, eps=1e-8):
 
     return out.mean(axis=0)
 
-def filter_reliable(reliability_threshold=0.7):
-    matrix = torch.load('src/metrics/neural_data/unordered_neural_repetitions.pt')
+def filter_reliable(neural_data_dir="src/metrics/neural_data", reliability_threshold=0.7):
+    matrix = torch.load(os.path.join(neural_data_dir, 'unordered_neural_repetitions.pt'))
     print(matrix.shape)
     r = split_half_reliability(matrix)
     mask = r>=0.7
@@ -64,19 +64,20 @@ def filter_reliable(reliability_threshold=0.7):
     return mask, r_means
 
 class NeuralDataStimuli(Dataset):
-    def __init__(self, trnsfrms=None):
-        self.neural_data = torch.load('src/metrics/neural_data/averaged_neural_data.pt')
-        self.stimulus = os.listdir('src/metrics/neural_data/images')
+    def __init__(self, neural_data_dir="src/metrics/neural_data", trnsfrms=None):
+        self.neural_data_dir = neural_data_dir
+        self.neural_data = torch.load(os.path.join(neural_data_dir, 'averaged_neural_data.pt'))
+        self.stimulus = os.listdir(os.path.join(neural_data_dir, 'images'))
         self.stimulus.sort(key=lambda x: int(x.split('.')[0]))
         self.transform = trnsfrms
-        self.groups = torch.load('src/metrics/neural_data/stimulus_categories.pt')
+        self.groups = torch.load(os.path.join(neural_data_dir, 'stimulus_categories.pt'))
 
     def __len__(self):
         return len(self.stimulus)
 
     def __getitem__(self, idx):
         stimulus_id = self.stimulus[idx]
-        local_path = os.path.join('src/metrics/neural_data/images', stimulus_id)
+        local_path = os.path.join(self.neural_data_dir, 'images', stimulus_id)
         img = image.imread(local_path)
         img = transforms.ToPILImage()(img)
         trsfm = transforms.Compose([
@@ -150,9 +151,9 @@ def ridge_regression(X, Y, alpha=1.0):
     # W = torch.tensor(clf.coef_, device=X.device).T
     return clf
 
-def F_R_EV(model, activation_layer="fc1", alpha=1, transforms=None, num_iterations=None, splits=10, reliability_threshold=0.7, batch_size=128):
-    dataset = NeuralDataStimuli(trnsfrms=transforms)
-    bool_mask, r_means = filter_reliable(reliability_threshold=reliability_threshold)
+def F_R_EV(model, activation_layer="fc1", neural_data_dir="src/metrics/neural_data", alpha=1, transforms=None, num_iterations=None, splits=10, reliability_threshold=0.7, batch_size=128):
+    dataset = NeuralDataStimuli(neural_data_dir=neural_data_dir, trnsfrms=transforms)
+    bool_mask, r_means = filter_reliable(neural_data_dir=neural_data_dir, reliability_threshold=reliability_threshold)
     groups = dataset.groups
     skf = StratifiedKFold(n_splits=splits)
     idx = range(len(dataset))
@@ -236,7 +237,7 @@ if __name__ == "__main__":
     model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 
 
-    EV_score = F_R_EV(cnn, activation_layer="fc1", alpha=0.1, transforms=stimuli_transform, reliability_threshold=0.7)
+    EV_score = F_R_EV(cnn, activation_layer="fc1", neural_data_dir="src/metrics/neural_data", alpha=0.1, transforms=stimuli_transform, reliability_threshold=0.7)
     print(EV_score)
     # EV_score_resnet_50 = F_R_EV(benchmark, model, activation_layer="layer4.0.bn1", alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
     # print(EV_score_resnet_50)

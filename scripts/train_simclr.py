@@ -139,6 +139,7 @@ def parse_args():
     ap.add_argument('--spectral_loss_coeff', type=float, default=0.0)
     ap.add_argument('--neural_ev', type =bool, default=False, help='evaluate neural predictivity at each epoch')
     ap.add_argument('--neural_ev_layer', type=str, default='encoder.layer4.0.bn1', help='which layer to use for neural predictivity')    
+    ap.add_argument('--neural_data_dir', type=str, default='src/metrics/neural_data', help='directory for neural data')
     return ap.parse_args()
 
 def main():
@@ -161,6 +162,7 @@ def main():
     skip_alpha = args.skip_alpha_metric
     neural_ev = args.neural_ev
     neural_ev_layer = args.neural_ev_layer
+    neural_data_dir = args.neural_data_dir
 
     save_dir = args.save_dir
     if save_dir:
@@ -292,7 +294,7 @@ def main():
         print(f"epoch {epoch} | PR {pr:.1f} | lam1 {lam1:.3g} | lam_min {lam_min:.3g}")
 
         if neural_ev:
-            ev_dict = F_R_EV(model, activation_layer=neural_ev_layer, alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4) 
+            ev_dict = F_R_EV(model, activation_layer=neural_ev_layer, neural_data_dir=neural_data_dir, alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4) 
         else:
             ev_dict = {'BPI': 0.0, 'F_EV': 0.0, 'R_EV': 0.0}
         bpi = ev_dict['BPI']
