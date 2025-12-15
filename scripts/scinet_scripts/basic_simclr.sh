@@ -23,7 +23,7 @@ spectral_loss_coeff="${1-0.0}"
 epochs="${2-100}"
 batch_size="${3-32}"
 neural_ev="${4-False}"
-log_folder_name ="${5-basic_simclr_logs}"
+log_folder_name="${5-basic_simclr_logs}"
 if [ "$neural_ev" == "True" ]; then
     neural_ev_arg="--neural_ev True"
 else
