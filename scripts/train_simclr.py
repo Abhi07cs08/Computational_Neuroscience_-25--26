@@ -143,6 +143,10 @@ def parse_args():
     return ap.parse_args()
 
 def main():
+    start_ts = int(time.time())
+    start_ts = time.strftime("%Y%m%d-%H%M%S")
+
+
     args = parse_args()
 
     # device preference: MPS > CUDA > CPU
@@ -166,6 +170,7 @@ def main():
 
     save_dir = args.save_dir
     if save_dir:
+        save_dir = os.path.join(save_dir, f'start_{start_ts}')
         os.makedirs(save_dir, exist_ok=True)
 
     print(f'beta (spectral loss coeff): {beta}')
@@ -267,7 +272,6 @@ def main():
             if (it + 1) % args.log_every == 0:
                 print(f"epoch {epoch} | iter {it+1}/{len(train_dl)} | loss {running / (it+1):.4f}")
         # --- save checkpoint ---
-        # ts = time.strftime("%Y%m%d-%H%M%S")
         ts = int(time.time())
 
         ckpt = {
