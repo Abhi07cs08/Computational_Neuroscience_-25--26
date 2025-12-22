@@ -48,4 +48,4 @@ fi
 echo "Arguments: spectral_loss_coeff=$spectral_loss_coeff epochs=$epochs batch_size=$batch_size neural_ev=$neural_ev neural_data_dir=$neural_data_dir log_folder_name=$log_folder_name"
 
 # Run the Python script
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir /scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/$log_folder_name $skip_knn_arg $skip_spectrum_arg --spectral_loss_coeff $spectral_loss_coeff $neural_ev_arg
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/$log_folder_name" $skip_knn_arg $skip_spectrum_arg --spectral_loss_coeff $spectral_loss_coeff $neural_ev_arg

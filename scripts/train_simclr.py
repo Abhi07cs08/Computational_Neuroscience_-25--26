@@ -136,7 +136,7 @@ def parse_args():
     ap.add_argument('--skip_knn_metric', type=bool, default=False)
     ap.add_argument('--skip_alpha_metric', type=bool, default=False)
     ap.add_argument('--skip_spectrum_metric', type=bool, default=False)
-    ap.add_argument('--spectral_loss_coeff', type=float, default=0.0)
+    ap.add_argument('--spectral_loss_coeff', type=float, default=0.0, help='coefficient for spectral loss term')
     ap.add_argument('--neural_ev', type =bool, default=False, help='evaluate neural predictivity at each epoch')
     ap.add_argument('--neural_ev_layer', type=str, default='encoder.layer4.0.bn1', help='which layer to use for neural predictivity')    
     ap.add_argument('--neural_data_dir', type=str, default='src/metrics/neural_data', help='directory for neural data')

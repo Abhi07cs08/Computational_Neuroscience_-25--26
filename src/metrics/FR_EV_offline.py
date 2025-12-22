@@ -67,6 +67,7 @@ class NeuralDataStimuli(Dataset):
     def __init__(self, neural_data_dir="src/metrics/neural_data", trnsfrms=None):
         self.neural_data_dir = neural_data_dir
         self.neural_data = torch.load(os.path.join(neural_data_dir, 'averaged_neural_data.pt'))
+        print(self.neural_data.shape)
         self.stimulus = os.listdir(os.path.join(neural_data_dir, 'images'))
         self.stimulus.sort(key=lambda x: int(x.split('.')[0]))
         self.transform = trnsfrms
