@@ -283,9 +283,30 @@ def main():
         os.makedirs(f"{save_dir}/ckpts/simclr", exist_ok=True) if save_dir else os.makedirs("ckpts/simclr", exist_ok=True)
         torch.save(ckpt, f"{save_dir}/ckpts/simclr/ts{ts}_e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/ts{ts}_e{epoch:03d}.pt")
 
-        alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
+        val_loss = 0
+        alphas = []
+        for it, (q, k) in enumerate(val_dl):
+            # if it >=1:
+            #     break
+            print(f"batch {it+1}/{len(val_dl)}", end='\r')
+            # keep tensors contiguous
+            q = q.to(device, non_blocking=False).contiguous()
+            k = k.to(device, non_blocking=False).contiguous()
+            z1 = model(q)
+            z2 = model(k)
+            loss = info_nce(z1, z2, tau=args.tau)
+            val_loss += loss.item()
+            alpha = just_alpha(activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else torch.tensor(0.0, device=device)
+            alpha = alpha.cpu().item()
+            alphas.append(alpha)
+        val_avg = val_loss / max(1, len(val_dl))
+        val_alpha = np.mean(alphas)
+        print(f"Epoch {epoch} VAL | Avg Loss: {val_avg:.4f} | Layer4 alpha: {val_alpha:.3f}")
+
+
+
+        # alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
         # alpha = np.mean(alphas_train)
-        print(f"epoch {epoch} | Layer4 alpha: {alpha:.3f}")
 
         avg = running / max(1, len(train_dl))
         print(f"epoch {epoch} | avg loss {avg:.4f}")
@@ -313,9 +334,9 @@ def main():
         os.makedirs(f"{save_dir}/logs", exist_ok=True) if save_dir else os.makedirs("logs", exist_ok=True)
         log_path = f"{save_dir}/logs/simclr_baseline.csv" if save_dir else "logs/simclr_baseline.csv"
         header = ["ts","epoch","tau","batch_size","img_size","accum_steps","lr",
-                "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta", "BPI", "F_EV", "R_EV"]
+                "loss", "val_loss", "knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta", "BPI", "F_EV", "R_EV"]
         row = [ts, epoch, args.tau, args.batch_size, args.img_size,
-            args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device, alpha, beta, bpi, f_ev, r_ev]
+            args.accum_steps, args.lr, avg, val_avg, top1, pr, lam1, lam_min, args.limit_train, device, val_alpha, beta, bpi, f_ev, r_ev]
         write_header = not os.path.exists(log_path)
         with open(log_path, "a", newline="") as f:
             w = csv.writer(f)
