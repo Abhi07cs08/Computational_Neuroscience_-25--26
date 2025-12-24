@@ -88,7 +88,7 @@ def build_imagenet_val_loader(
         pin_memory: bool (True only for CUDA)
         limit_val: int or None, number of samples to load for bring-up
     """
-    t = transforms.Compose([transforms.ToTensor(),])
+    t = TwoCropsTransform(transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]),]))
     val_path = os.path.join(root, "val")
     dataset = SafeImageFolder(root=val_path, transform=t)
 
@@ -104,6 +104,7 @@ def build_imagenet_val_loader(
         num_workers=workers,
         pin_memory=pin_memory,
         drop_last=False,
+        collate_fn=_safe_collate,
     )
     return dl
 
