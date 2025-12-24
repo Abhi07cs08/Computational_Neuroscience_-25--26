@@ -136,12 +136,17 @@ def parse_args():
     ap.add_argument('--skip_knn_metric', type=bool, default=False)
     ap.add_argument('--skip_alpha_metric', type=bool, default=False)
     ap.add_argument('--skip_spectrum_metric', type=bool, default=False)
-    ap.add_argument('--spectral_loss_coeff', type=float, default=0.0)
+    ap.add_argument('--spectral_loss_coeff', type=float, default=0.0, help='coefficient for spectral loss term')
     ap.add_argument('--neural_ev', type =bool, default=False, help='evaluate neural predictivity at each epoch')
     ap.add_argument('--neural_ev_layer', type=str, default='encoder.layer4.0.bn1', help='which layer to use for neural predictivity')    
+    ap.add_argument('--neural_data_dir', type=str, default='src/metrics/neural_data', help='directory for neural data')
     return ap.parse_args()
 
 def main():
+    start_ts = int(time.time())
+    start_ts = time.strftime("%Y%m%d-%H%M%S")
+
+
     args = parse_args()
 
     # device preference: MPS > CUDA > CPU
@@ -161,9 +166,11 @@ def main():
     skip_alpha = args.skip_alpha_metric
     neural_ev = args.neural_ev
     neural_ev_layer = args.neural_ev_layer
+    neural_data_dir = args.neural_data_dir
 
     save_dir = args.save_dir
     if save_dir:
+        save_dir = os.path.join(save_dir, f'start_{start_ts}')
         os.makedirs(save_dir, exist_ok=True)
 
     print(f'beta (spectral loss coeff): {beta}')
@@ -265,7 +272,6 @@ def main():
             if (it + 1) % args.log_every == 0:
                 print(f"epoch {epoch} | iter {it+1}/{len(train_dl)} | loss {running / (it+1):.4f}")
         # --- save checkpoint ---
-        # ts = time.strftime("%Y%m%d-%H%M%S")
         ts = int(time.time())
 
         ckpt = {
@@ -277,9 +283,30 @@ def main():
         os.makedirs(f"{save_dir}/ckpts/simclr", exist_ok=True) if save_dir else os.makedirs("ckpts/simclr", exist_ok=True)
         torch.save(ckpt, f"{save_dir}/ckpts/simclr/ts{ts}_e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/ts{ts}_e{epoch:03d}.pt")
 
-        alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
+        val_loss = 0
+        alphas = []
+        for it, (q, k) in enumerate(val_dl):
+            # if it >=1:
+            #     break
+            print(f"batch {it+1}/{len(val_dl)}", end='\r')
+            # keep tensors contiguous
+            q = q.to(device, non_blocking=False).contiguous()
+            k = k.to(device, non_blocking=False).contiguous()
+            z1 = model(q)
+            z2 = model(k)
+            loss = info_nce(z1, z2, tau=args.tau)
+            val_loss += loss.item()
+            alpha = just_alpha(activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else torch.tensor(0.0, device=device)
+            alpha = alpha.cpu().item()
+            alphas.append(alpha)
+        val_avg = val_loss / max(1, len(val_dl))
+        val_alpha = np.mean(alphas)
+        print(f"Epoch {epoch} VAL | Avg Loss: {val_avg:.4f} | Layer4 alpha: {val_alpha:.3f}")
+
+
+
+        # alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
         # alpha = np.mean(alphas_train)
-        print(f"epoch {epoch} | Layer4 alpha: {alpha:.3f}")
 
         avg = running / max(1, len(train_dl))
         print(f"epoch {epoch} | avg loss {avg:.4f}")
@@ -292,7 +319,7 @@ def main():
         print(f"epoch {epoch} | PR {pr:.1f} | lam1 {lam1:.3g} | lam_min {lam_min:.3g}")
 
         if neural_ev:
-            ev_dict = F_R_EV(model, activation_layer=neural_ev_layer, alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4) 
+            ev_dict = F_R_EV(model, activation_layer=neural_ev_layer, neural_data_dir=neural_data_dir, alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4) 
         else:
             ev_dict = {'BPI': 0.0, 'F_EV': 0.0, 'R_EV': 0.0}
         bpi = ev_dict['BPI']
@@ -307,9 +334,9 @@ def main():
         os.makedirs(f"{save_dir}/logs", exist_ok=True) if save_dir else os.makedirs("logs", exist_ok=True)
         log_path = f"{save_dir}/logs/simclr_baseline.csv" if save_dir else "logs/simclr_baseline.csv"
         header = ["ts","epoch","tau","batch_size","img_size","accum_steps","lr",
-                "loss","knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta", "BPI", "F_EV", "R_EV"]
+                "loss", "val_loss", "knn_top1","PR","lam1","lam_min","limit_train","device", "alpha", "beta", "BPI", "F_EV", "R_EV"]
         row = [ts, epoch, args.tau, args.batch_size, args.img_size,
-            args.accum_steps, args.lr, avg, top1, pr, lam1, lam_min, args.limit_train, device, alpha, beta, bpi, f_ev, r_ev]
+            args.accum_steps, args.lr, avg, val_avg, top1, pr, lam1, lam_min, args.limit_train, device, val_alpha, beta, bpi, f_ev, r_ev]
         write_header = not os.path.exists(log_path)
         with open(log_path, "a", newline="") as f:
             w = csv.writer(f)
