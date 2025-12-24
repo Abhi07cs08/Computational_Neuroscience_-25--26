@@ -24,7 +24,7 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     loss_value = (alpha - target_alpha).abs().mean()
     return loss_value if device is None else loss_value.to(device), alpha
 
-def just_alpha(activation, device=None, n_components=40, target_alpha=1.0, bounds=(10, 30), eps=1e-12):
+def just_alpha(activation, device=None, n_components=40, bounds=(10, 30), eps=1e-12):
     X = activation.view(activation.size(0), -1)
     X = X - X.mean(axis=0)
     B, N = X.shape
