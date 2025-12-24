@@ -103,7 +103,7 @@ def build_imagenet_val_loader(
         shuffle=False,
         num_workers=workers,
         pin_memory=pin_memory,
-        drop_last=False,
+        drop_last=True,
         collate_fn=_safe_collate,
     )
     return dl
