@@ -18,3 +18,10 @@ imagenet1k/
 train_val/
 vision/
 vision
+src/metrics/download_FR_EV.ipynb
+src/metrics/neural_data/
+scripts/fetch_data_from_scinet.sh
+new_logs/
+figures/
+sk_log.md
+.gitignore
