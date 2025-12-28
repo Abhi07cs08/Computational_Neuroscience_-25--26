@@ -283,6 +283,9 @@ def main():
         os.makedirs(f"{save_dir}/ckpts/simclr", exist_ok=True) if save_dir else os.makedirs("ckpts/simclr", exist_ok=True)
         torch.save(ckpt, f"{save_dir}/ckpts/simclr/ts{ts}_e{epoch:03d}.pt") if save_dir else torch.save(ckpt, f"ckpts/simclr/ts{ts}_e{epoch:03d}.pt")
 
+        avg = running / max(1, len(train_dl))
+        print(f"epoch {epoch} | avg train loss {avg:.4f}")
+
         val_loss = 0
         alphas = []
         for it, (q, k) in enumerate(val_dl):
@@ -301,15 +304,14 @@ def main():
             alphas.append(alpha)
         val_avg = val_loss / max(1, len(val_dl))
         val_alpha = np.mean(alphas)
-        print(f"Epoch {epoch} VAL | Avg Loss: {val_avg:.4f} | Layer4 alpha: {val_alpha:.3f}")
+        print(f"Epoch {epoch} | avg val loss: {val_avg:.4f} | val alpha: {val_alpha:.3f}")
 
 
 
         # alpha = fetch_alpha(model, val_dl, activationclass.activations[neural_ev_layer], device=device) if not skip_alpha else 0.0
         # alpha = np.mean(alphas_train)
 
-        avg = running / max(1, len(train_dl))
-        print(f"epoch {epoch} | avg loss {avg:.4f}")
+
 
         top1 = knn_top1_fast(model, args.imagenet_root, img_size=args.img_size,
                             train_samples=2000, val_samples=500, batch=64) if not skip_knn else 0.0
