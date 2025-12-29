@@ -27,7 +27,7 @@ log_folder_name="${5-basic_simclr_logs}"
 neural_data_dir="${6-/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/metrics/neural_data}"
 skip_knn_metric="${7-False}"
 skip_spectrum_metric="${8-False}"
-skip_alpha_metric="${9-True}"
+skip_alpha_metric="${9-False}"
 if [ "$neural_ev" == "True" ]; then
     neural_ev_arg="--neural_ev True --neural_data_dir $neural_data_dir"
 else
