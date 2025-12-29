@@ -1,4 +1,3 @@
-# src/eval/linear_probe.py
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
