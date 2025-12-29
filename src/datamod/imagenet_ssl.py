@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import ImageFolder
 from PIL import ImageFile
+from src.datamod.twocrops import TwoCropsTransform, simclr_transform, ssl_deterministic_transform, eval_train_transform, eval_val_transform
 
 from src.datamod.twocrops import TwoCropsTransform, simclr_transform, eval_train_transform, eval_val_transform
 
@@ -27,7 +28,7 @@ def _safe_collate_supervised(batch):
     if len(batch) == 0:
         raise RuntimeError("All samples were None in this batch.")
     x = torch.stack([b[0] for b in batch], dim=0)
-    y = torch.tensor([b[1] for b in batch], dtype=torch.long)
+    y = torch.as_tensor([b[1] for b in batch], dtype=torch.long)
     return x, y
 
 
@@ -80,6 +81,37 @@ def build_ssl_train_loader(
         persistent_workers=(workers > 0),
     )
 
+
+def build_ssl_val_loader_deterministic(
+    root,
+    batch_size=256,
+    workers=8,
+    img_size=224,
+    pin_memory=False,
+    limit_val=None,
+):
+    """
+    Deterministic SSL validation: two-crops but deterministic (same transform twice).
+    This is a diagnostic for collapse, not the main SSL-val objective.
+    """
+    val_path = os.path.join(root, "val")
+    base = ssl_deterministic_transform(img_size)
+    t = TwoCropsTransform(base)
+    ds = SafeImageFolder(root=val_path, transform=t)
+
+    if limit_val is not None and limit_val < len(ds):
+        ds = Subset(ds, list(range(limit_val)))
+
+    return DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=workers,
+        pin_memory=pin_memory,
+        drop_last=False,
+        collate_fn=_safe_collate_ssl,
+        persistent_workers=(workers > 0),
+    )
 
 def build_ssl_val_loader(
     root,
