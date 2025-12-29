@@ -7,6 +7,7 @@ import random
 import numpy as np
 
 import torch
+import torch.nn.functional as F
 from torch import optim
 from torch.amp import GradScaler, autocast
 
@@ -34,13 +35,19 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    # Determinism is nice for debugging, but can slow down.
-    # For “research-grade baseline”, I’d keep it ON until stable.
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
 
-def cosine_lr_with_warmup(optimizer, base_lr, epoch, step_in_epoch, steps_per_epoch, warmup_epochs, total_epochs):
+def cosine_lr_with_warmup(
+    optimizer,
+    base_lr,
+    epoch,
+    step_in_epoch,
+    steps_per_epoch,
+    warmup_epochs,
+    total_epochs,
+):
     """
     Per-step cosine schedule with linear warmup.
     """
@@ -51,7 +58,6 @@ def cosine_lr_with_warmup(optimizer, base_lr, epoch, step_in_epoch, steps_per_ep
     if warmup_steps > 0 and global_step < warmup_steps:
         lr = base_lr * float(global_step + 1) / float(warmup_steps)
     else:
-        # cosine from base_lr -> 0
         t = (global_step - warmup_steps) / float(max(1, total_steps - warmup_steps))
         lr = 0.5 * base_lr * (1.0 + np.cos(np.pi * t))
 
@@ -79,6 +85,58 @@ def ssl_val_infonce(model, ssl_val_dl, tau, device):
         n += 1
     model.train()
     return total / max(1, n)
+
+
+@torch.no_grad()
+def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
+    """
+    Participation Ratio (PR) + eigen stats from a few batches.
+    Mirrors old spectrum_probe, but uses torch end-to-end.
+    use:
+      - "z": projection output (matches old model(q))
+      - "h": encoder features
+    """
+    model.eval()
+    ys = []
+    it = 0
+
+    for batch in dl:
+        # SSL: (q,k) ; supervised eval: (x,y)
+        if isinstance(batch, (tuple, list)) and len(batch) == 2:
+            x = batch[0]
+        else:
+            x = batch
+
+        x = x[:max_per_batch].to(device, non_blocking=True).contiguous()
+
+        h = model.encoder(x)
+        if use == "z":
+            y = model.proj(h)
+            y = F.normalize(y, dim=1)
+        else:
+            y = F.normalize(h, dim=1)
+
+        ys.append(y.detach().float().cpu())
+        it += 1
+        if it >= batches:
+            break
+
+    if len(ys) == 0:
+        model.train()
+        return 0.0, 0.0, 0.0
+
+    Y = torch.cat(ys, dim=0)  # [N, D] on CPU
+    Y = Y - Y.mean(dim=0, keepdim=True)
+    C = (Y.T @ Y) / max(1, Y.shape[0])  # [D, D]
+    eig = torch.linalg.eigvalsh(C)      # ascending
+    eig = torch.clamp(eig, min=0)
+
+    pr = (eig.sum() ** 2) / (eig.pow(2).sum() + 1e-12)
+    lam1 = eig[-1]
+    lam_min = eig[0]
+
+    model.train()
+    return float(pr.item()), float(lam1.item()), float(lam_min.item())
 
 
 def parse_args():
@@ -114,9 +172,10 @@ def parse_args():
     ap.add_argument("--skip_alpha", action="store_true")
     ap.add_argument("--skip_neural_ev", action="store_true")
     ap.add_argument("--skip_linear_probe", action="store_true")
+    ap.add_argument("--skip_pr", action="store_true")
 
     # evaluation cadence
-    ap.add_argument("--eval_every", type=int, default=10, help="run knn/linear probe every N epochs")
+    ap.add_argument("--eval_every", type=int, default=10, help="run knn/linear probe/pr every N epochs")
 
     # linear probe specifics
     ap.add_argument("--lp_epochs", type=int, default=5)
@@ -168,7 +227,7 @@ def main():
     print(f"beta (spectral loss coeff): {args.spectral_loss_coeff}")
     print(f"tau={args.tau} bs={args.batch_size} lr={args.lr} wd={args.wd} warmup={args.warmup_epochs} epochs={args.epochs}")
     print(f"workers={args.workers} amp={amp_enabled} grad_clip={args.grad_clip}")
-    print(f"eval_every={args.eval_every} (knn/linear probe), seed={args.seed}")
+    print(f"eval_every={args.eval_every} (knn/linear probe/pr), seed={args.seed}")
 
     # --------------------------
     # Loaders
@@ -198,12 +257,10 @@ def main():
         workers=args.workers,
         img_size=args.img_size,
         pin_memory=pin_memory,
-        limit_train=None,   # don’t reuse limit_train unless you explicitly want tiny eval
+        limit_train=None,
         limit_val=None,
     )
 
-    # grab num_classes from ImageFolder indirectly:
-    # eval_tr_dl.dataset is Subset(SafeImageFolder) or SafeImageFolder; handle both
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
     num_classes = len(base_ds.classes)
 
@@ -222,9 +279,10 @@ def main():
         "ts", "epoch", "lr", "tau", "batch_size", "img_size",
         "train_loss", "ssl_val_loss",
         "knn_top1", "linear_probe_top1",
+        "PR_z", "lam1_z", "lam_min_z",
         "alpha", "beta",
         "BPI", "F_EV", "R_EV",
-        "device", "seed"
+        "device", "seed",
     ]
     if not os.path.exists(log_path):
         with open(log_path, "w", newline="") as f:
@@ -248,7 +306,6 @@ def main():
             q = q.to(device, non_blocking=True).contiguous()
             k = k.to(device, non_blocking=True).contiguous()
 
-            # LR schedule per step
             lr_now = cosine_lr_with_warmup(
                 optimizer,
                 base_lr=args.lr,
@@ -267,9 +324,9 @@ def main():
 
                     if args.spectral_loss_coeff != 0.0:
                         acts = activationclass.activations[args.neural_ev_layer]
-                        a, l2 = spectral_loss(acts, device)
+                        _, l2 = spectral_loss(acts, device)
                     else:
-                        a, l2 = torch.tensor(0.0, device=device), torch.tensor(0.0, device=device)
+                        l2 = torch.tensor(0.0, device=device)
 
                     loss = l1 + args.spectral_loss_coeff * l2
 
@@ -291,9 +348,9 @@ def main():
 
                 if args.spectral_loss_coeff != 0.0:
                     acts = activationclass.activations[args.neural_ev_layer]
-                    a, l2 = spectral_loss(acts, device)
+                    _, l2 = spectral_loss(acts, device)
                 else:
-                    a, l2 = torch.tensor(0.0, device=device), torch.tensor(0.0, device=device)
+                    l2 = torch.tensor(0.0, device=device)
 
                 loss = l1 + args.spectral_loss_coeff * l2
                 loss.backward()
@@ -325,7 +382,6 @@ def main():
         if args.skip_alpha:
             val_alpha = 0.0
         else:
-            # compute on one batch from ssl_val for speed and stability
             with torch.no_grad():
                 q, _ = next(iter(ssl_val_dl))
                 q = q.to(device, non_blocking=True).contiguous()
@@ -334,11 +390,15 @@ def main():
         print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
         # --------------------------
-        # kNN + linear probe (every eval_every epochs)
+        # kNN + linear probe + PR (cadenced)
         # --------------------------
         do_eval = ((epoch + 1) % args.eval_every == 0) or (epoch == 0)
+
         knn_acc = 0.0
         lp_acc = 0.0
+        pr_z = 0.0
+        lam1_z = 0.0
+        lammin_z = 0.0
 
         if do_eval:
             if not args.skip_knn:
@@ -351,6 +411,12 @@ def main():
                     device=device, epochs=args.lp_epochs, lr=args.lp_lr, wd=args.lp_wd
                 )
                 print(f"epoch {epoch+1} | linear probe top1 {lp_acc:.2f}%")
+
+            if not args.skip_pr:
+                pr_z, lam1_z, lammin_z = spectrum_pr(
+                    model, ssl_train_dl, device=device, batches=2, max_per_batch=64, use="z"
+                )
+                print(f"epoch {epoch+1} | PR(z) {pr_z:.1f} | lam1 {lam1_z:.3g} | lam_min {lammin_z:.3g}")
 
         # --------------------------
         # Neural EV (optional, expensive)
@@ -388,7 +454,6 @@ def main():
         last_path = os.path.join(ckpt_dir, "last.pt")
         torch.save(ckpt, last_path)
 
-        # keep best by ssl val
         if ssl_val_avg < best_ssl_val:
             best_ssl_val = ssl_val_avg
             best_path = os.path.join(ckpt_dir, "best_ssl_val.pt")
@@ -402,9 +467,10 @@ def main():
             ts, epoch + 1, optimizer.param_groups[0]["lr"], args.tau, args.batch_size, args.img_size,
             train_avg, ssl_val_avg,
             knn_acc, lp_acc,
+            pr_z, lam1_z, lammin_z,
             val_alpha, args.spectral_loss_coeff,
             bpi, f_ev, r_ev,
-            device, args.seed
+            device, args.seed,
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
