@@ -67,24 +67,34 @@ def cosine_lr_with_warmup(
 
 
 @torch.no_grad()
-def ssl_val_infonce(model, ssl_val_dl, tau, device):
-    """
-    SSL validation should use the SAME two-crops/augment distribution as train,
-    but evaluated without gradients.
-    """
+def ssl_val_infonce_and_alpha(model, ssl_val_dl, tau, device,
+                              activationclass=None, alpha_layer=None,
+                              compute_alpha=True):
     model.eval()
-    total = 0.0
+    total_loss = 0.0
     n = 0
+    alphas = []
+
     for q, k in ssl_val_dl:
         q = q.to(device, non_blocking=True).contiguous()
         k = k.to(device, non_blocking=True).contiguous()
+
         z1 = model(q)
         z2 = model(k)
         loss = info_nce(z1, z2, tau=tau)
-        total += loss.item()
+
+        total_loss += loss.item()
         n += 1
+
+        if compute_alpha and activationclass is not None and alpha_layer is not None:
+            a = just_alpha(activationclass.activations[alpha_layer], device=device)
+            alphas.append(float(a.detach().float().cpu().item()))
+
     model.train()
-    return total / max(1, n)
+    avg_loss = total_loss / max(1, n)
+    avg_alpha = float(np.mean(alphas)) if (compute_alpha and len(alphas) > 0) else 0.0
+    return avg_loss, avg_alpha
+
 
 
 @torch.no_grad()
@@ -373,9 +383,17 @@ def main():
         # --------------------------
         # SSL val loss (proper)
         # --------------------------
-        ssl_val_avg = ssl_val_infonce(model, ssl_val_dl, tau=args.tau, device=device)
-        print(f"epoch {epoch+1} | ssl val InfoNCE {ssl_val_avg:.4f}")
-
+        ssl_val_avg, val_alpha = ssl_val_infonce_and_alpha(
+            model,
+            ssl_val_dl,
+            tau=args.tau,
+            device=device,
+            activationclass=activationclass,
+            alpha_layer=args.neural_ev_layer,
+            compute_alpha=(not args.skip_alpha),
+        )
+        print(f"epoch {epoch+1} | ssl val InfoNCE {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
+        
         # --------------------------
         # Alpha metric (optional)
         # --------------------------
