@@ -108,7 +108,7 @@ def build_ssl_val_loader_deterministic(
         shuffle=False,
         num_workers=workers,
         pin_memory=pin_memory,
-        drop_last=False,
+        drop_last=True,
         collate_fn=_safe_collate_ssl,
         persistent_workers=(workers > 0),
     )
@@ -138,7 +138,7 @@ def build_ssl_val_loader(
         shuffle=False,
         num_workers=workers,
         pin_memory=pin_memory,
-        drop_last=False,
+        drop_last=True,
         collate_fn=_safe_collate_ssl,
         persistent_workers=(workers > 0),
     )
@@ -174,7 +174,7 @@ def build_eval_loaders(
         shuffle=True,
         num_workers=workers,
         pin_memory=pin_memory,
-        drop_last=False,
+        drop_last=True,
         collate_fn=_safe_collate_supervised,
         persistent_workers=(workers > 0),
     )
@@ -184,7 +184,7 @@ def build_eval_loaders(
         shuffle=False,
         num_workers=workers,
         pin_memory=pin_memory,
-        drop_last=False,
+        drop_last=True,
         collate_fn=_safe_collate_supervised,
         persistent_workers=(workers > 0),
     )

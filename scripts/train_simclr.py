@@ -334,9 +334,10 @@ def main():
 
                     if args.spectral_loss_coeff != 0.0:
                         acts = activationclass.activations[args.neural_ev_layer]
-                        _, l2 = spectral_loss(acts, device)
+                        l2, alpha = spectral_loss(acts, device)
                     else:
                         l2 = torch.tensor(0.0, device=device)
+                        alpha = torch.tensor(0.0, device=device)
 
                     loss = l1 + args.spectral_loss_coeff * l2
 
@@ -358,9 +359,10 @@ def main():
 
                 if args.spectral_loss_coeff != 0.0:
                     acts = activationclass.activations[args.neural_ev_layer]
-                    _, l2 = spectral_loss(acts, device)
+                    l2, alpha = spectral_loss(acts, device)
                 else:
                     l2 = torch.tensor(0.0, device=device)
+                    alpha = torch.tensor(0.0, device=device)
 
                 loss = l1 + args.spectral_loss_coeff * l2
                 loss.backward()
@@ -375,7 +377,7 @@ def main():
             n_steps += 1
 
             if (it + 1) % args.log_every == 0:
-                print(f"epoch {epoch+1} iter {it+1}/{steps_per_epoch} lr {lr_now:.5f} loss {epoch_loss/max(1,n_steps):.4f}")
+                print(f"epoch {epoch+1} iter {it+1}/{steps_per_epoch} lr {lr_now:.5f} loss {epoch_loss/max(1,n_steps):.4f} | alpha {alpha:.3f}")
 
         train_avg = epoch_loss / max(1, n_steps)
         print(f"--- Epoch {epoch+1} done | avg train loss {train_avg:.4f} ---")
