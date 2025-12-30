@@ -1,18 +1,31 @@
 import torch
 import torch.nn.functional as F
 
-def info_nce(z1, z2, tau=0.1):
-    # z1,z2 are already L2-normalized by the model
-    B, D = z1.shape
-    Z = torch.cat([z1, z2], dim=0)             # [2B, D]
-    sim = Z @ Z.t() / tau                      # cosine similarities / tau
+import torch
+import torch.nn.functional as F
 
-    # mask self-similarities
-    mask = torch.eye(2*B, device=Z.device).bool()
-    sim = sim.masked_fill(mask, -1e9)
+def info_nce(z1, z2, tau=0.2):
+    """
+    Stable InfoNCE under AMP:
+    - compute similarities in float32
+    - use dtype-safe mask fill
+    """
+    # normalize in float32 for stability, this should resolve the runtime error.
+    z1 = F.normalize(z1.float(), dim=1)
+    z2 = F.normalize(z2.float(), dim=1)
 
-    # positives: i <-> i+B and i+B <-> i
-    pos = torch.cat([torch.arange(B, 2*B), torch.arange(0, B)], dim=0).to(Z.device)
+    B = z1.size(0)
+    z = torch.cat([z1, z2], dim=0)                 # [2B, D]
+    sim = (z @ z.t()) / tau                        # float32
+
+    # mask self-similarity
+    mask = torch.eye(2 * B, device=sim.device, dtype=torch.bool)
+    sim = sim.masked_fill(mask, torch.finfo(sim.dtype).min)
+
+    # positives: i <-> i+B
+    pos = torch.cat([torch.arange(B, 2*B, device=sim.device),
+                     torch.arange(0, B, device=sim.device)], dim=0)
     labels = pos
+
     loss = F.cross_entropy(sim, labels)
     return loss
