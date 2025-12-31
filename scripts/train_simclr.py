@@ -401,12 +401,12 @@ def main():
         # --------------------------
         if args.skip_alpha:
             val_alpha = 0.0
-        else:
-            with torch.no_grad():
-                q, _ = next(iter(ssl_val_dl))
-                q = q.to(device, non_blocking=True).contiguous()
-                _ = model(q)
-                val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
+        # else:
+        #     with torch.no_grad():
+        #         q, _ = next(iter(ssl_val_dl))
+        #         q = q.to(device, non_blocking=True).contiguous()
+        #         _ = model(q)
+        #         val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
         print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
         # --------------------------
