@@ -332,7 +332,7 @@ def main():
                     z2 = model(k)
                     l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
 
-                    if args.spectral_loss_coeff != 0.0:
+                    if args.spectral_loss_coeff != 0.0 and epoch >= int(args.warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
                         l2, alpha = spectral_loss(acts, device)
                     else:
@@ -357,7 +357,7 @@ def main():
                 z2 = model(k)
                 l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
 
-                if args.spectral_loss_coeff != 0.0:
+                if args.spectral_loss_coeff != 0.0 and epoch >= int(args.warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
                     l2, alpha = spectral_loss(acts, device)
                 else:
