@@ -20,6 +20,8 @@ export PYTHONPATH=$PWD
 export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":$PYTHONPATH
 
 spectral_loss_coeff="${1-0.0}"
+batch_size="${2-32}"
+epochs="${3-200}"
 
 # Run the Python script
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size 32 --epochs 200 --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/sk_logs_spec_loss_$spectral_loss_coeff" --tau 0.2 --lr 0.3 --wd 1e-6 --workers 16 --warmup_epochs 10 --eval_every 5 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0 --neural_data_dir "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/metrics/neural_data" --spectral_loss_coeff $spectral_loss_coeff
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/sk_logs_spec_loss_$spectral_loss_coeff" --tau 0.2 --lr 0.3 --wd 1e-6 --workers 16 --warmup_epochs 10 --eval_every 5 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0 --neural_data_dir "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/metrics/neural_data" --spectral_loss_coeff $spectral_loss_coeff
