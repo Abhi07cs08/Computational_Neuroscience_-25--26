@@ -194,6 +194,7 @@ def parse_args():
 
     # spectral loss
     ap.add_argument("--spectral_loss_coeff", type=float, default=0.0)
+    ap.add_argument("--spectral_loss_warmup_epochs", type=int, default=0)
 
     # neural EV
     ap.add_argument("--neural_ev_layer", type=str, default="encoder.layer4.0.bn1")
@@ -332,7 +333,7 @@ def main():
                     z2 = model(k)
                     l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
 
-                    if args.spectral_loss_coeff != 0.0 and epoch >= int(args.warmup_epochs):
+                    if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
                         l2, alpha = spectral_loss(acts, device)
                     else:
@@ -357,7 +358,7 @@ def main():
                 z2 = model(k)
                 l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
 
-                if args.spectral_loss_coeff != 0.0 and epoch >= int(args.warmup_epochs):
+                if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
                     l2, alpha = spectral_loss(acts, device)
                 else:
@@ -399,15 +400,15 @@ def main():
         # --------------------------
         # Alpha metric (optional)
         # --------------------------
-        if args.skip_alpha:
-            val_alpha = 0.0
-        # else:
-        #     with torch.no_grad():
-        #         q, _ = next(iter(ssl_val_dl))
-        #         q = q.to(device, non_blocking=True).contiguous()
-        #         _ = model(q)
-        #         val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
-        print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
+        # if args.skip_alpha:
+        #     val_alpha = 0.0
+        # # else:
+        # #     with torch.no_grad():
+        # #         q, _ = next(iter(ssl_val_dl))
+        # #         q = q.to(device, non_blocking=True).contiguous()
+        # #         _ = model(q)
+        # #         val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
+        # print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
         # --------------------------
         # kNN + linear probe + PR (cadenced)
