@@ -300,6 +300,7 @@ def main():
             csv.writer(f).writerow(header)
 
     best_ssl_val = float("inf")
+    best_linear_probe = 0.0
 
     # --------------------------
     # Train
@@ -485,6 +486,12 @@ def main():
             best_path = os.path.join(ckpt_dir, "best_ssl_val.pt")
             torch.save(ckpt, best_path)
             print(f"epoch {epoch+1} | new best ssl val {best_ssl_val:.4f} -> saved best_ssl_val.pt")
+
+        if lp_acc > best_linear_probe:
+            best_linear_probe = lp_acc
+            best_lp_path = os.path.join(ckpt_dir, "best_linear_probe.pt")
+            torch.save(ckpt, best_lp_path)
+            print(f"epoch {epoch+1} | new best linear probe {best_linear_probe:.2f}% -> saved best_linear_probe.pt")
 
         # --------------------------
         # Log row
