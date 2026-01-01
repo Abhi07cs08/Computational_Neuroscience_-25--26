@@ -331,7 +331,9 @@ def main():
                 with autocast("cuda"):
                     z1 = model(q)
                     z2 = model(k)
-                    l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                    # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                    l1 = info_nce(z1, z2, tau=args.tau)
+
 
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
@@ -341,6 +343,7 @@ def main():
                         alpha = torch.tensor(0.0, device=device)
 
                     loss = l1 + args.spectral_loss_coeff * l2
+                    loss = loss / args.accum_steps
 
                 scaler.scale(loss).backward()
 
@@ -356,7 +359,8 @@ def main():
             else:
                 z1 = model(q)
                 z2 = model(k)
-                l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                l1 = info_nce(z1, z2, tau=args.tau)
 
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
@@ -366,6 +370,7 @@ def main():
                     alpha = torch.tensor(0.0, device=device)
 
                 loss = l1 + args.spectral_loss_coeff * l2
+                loss = loss / args.accum_steps
                 loss.backward()
 
                 if (it + 1) % args.accum_steps == 0:
