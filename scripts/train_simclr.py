@@ -426,6 +426,9 @@ def main():
         pr_z = 0.0
         lam1_z = 0.0
         lammin_z = 0.0
+        bpi = 0.0
+        f_ev = 0.0
+        r_ev = 0.0
 
         if do_eval:
             if not args.skip_knn:
@@ -444,26 +447,42 @@ def main():
                     model, ssl_train_dl, device=device, batches=2, max_per_batch=64, use="z"
                 )
                 print(f"epoch {epoch+1} | PR(z) {pr_z:.1f} | lam1 {lam1_z:.3g} | lam_min {lammin_z:.3g}")
-
-        # --------------------------
-        # Neural EV (optional, expensive)
-        # --------------------------
-        if args.skip_neural_ev:
-            ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
-        else:
-            ev_dict = F_R_EV(
+            
+            if not args.skip_neural_ev:
+                ev_dict = F_R_EV(
                 model,
                 activation_layer=args.neural_ev_layer,
                 neural_data_dir=args.neural_data_dir,
                 alpha=0.5,
                 transforms=three_channel_transform,
                 reliability_threshold=0.7,
-                batch_size=4,
-            )
+                batch_size=4,)
+                bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
+                print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
+            # else:
+            #     ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
+            #     bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
 
-        bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
-        if not args.skip_neural_ev:
-            print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
+
+        # # --------------------------
+        # # Neural EV (optional, expensive)
+        # # --------------------------
+        # if args.skip_neural_ev:
+        #     ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
+        # else:
+        #     ev_dict = F_R_EV(
+        #         model,
+        #         activation_layer=args.neural_ev_layer,
+        #         neural_data_dir=args.neural_data_dir,
+        #         alpha=0.5,
+        #         transforms=three_channel_transform,
+        #         reliability_threshold=0.7,
+        #         batch_size=4,
+        #     )
+
+        # bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
+        # if not args.skip_neural_ev:
+        #     print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
 
         # --------------------------
         # Checkpointing
