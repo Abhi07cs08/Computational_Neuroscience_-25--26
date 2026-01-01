@@ -494,6 +494,7 @@ def main():
             "opt": optimizer.state_dict(),
             "args": vars(args),
             "best_ssl_val": best_ssl_val,
+            "best_linear_probe": best_linear_probe,
         }
 
         ckpt_dir = os.path.join(save_dir, "ckpts", "simclr") if save_dir else "ckpts/simclr"
