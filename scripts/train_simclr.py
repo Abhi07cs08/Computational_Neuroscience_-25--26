@@ -194,6 +194,7 @@ def parse_args():
 
     # spectral loss
     ap.add_argument("--spectral_loss_coeff", type=float, default=0.0)
+    ap.add_argument("--spectral_loss_warmup_epochs", type=int, default=0)
 
     # neural EV
     ap.add_argument("--neural_ev_layer", type=str, default="encoder.layer4.0.bn1")
@@ -299,6 +300,7 @@ def main():
             csv.writer(f).writerow(header)
 
     best_ssl_val = float("inf")
+    best_linear_probe = 0.0
 
     # --------------------------
     # Train
@@ -330,9 +332,11 @@ def main():
                 with autocast("cuda"):
                     z1 = model(q)
                     z2 = model(k)
-                    l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                    # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                    l1 = info_nce(z1, z2, tau=args.tau)
 
-                    if args.spectral_loss_coeff != 0.0:
+
+                    if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
                         l2, alpha = spectral_loss(acts, device)
                     else:
@@ -340,6 +344,7 @@ def main():
                         alpha = torch.tensor(0.0, device=device)
 
                     loss = l1 + args.spectral_loss_coeff * l2
+                    loss = loss / args.accum_steps
 
                 scaler.scale(loss).backward()
 
@@ -355,9 +360,10 @@ def main():
             else:
                 z1 = model(q)
                 z2 = model(k)
-                l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
+                l1 = info_nce(z1, z2, tau=args.tau)
 
-                if args.spectral_loss_coeff != 0.0:
+                if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
                     l2, alpha = spectral_loss(acts, device)
                 else:
@@ -365,6 +371,7 @@ def main():
                     alpha = torch.tensor(0.0, device=device)
 
                 loss = l1 + args.spectral_loss_coeff * l2
+                loss = loss / args.accum_steps
                 loss.backward()
 
                 if (it + 1) % args.accum_steps == 0:
@@ -399,15 +406,15 @@ def main():
         # --------------------------
         # Alpha metric (optional)
         # --------------------------
-        if args.skip_alpha:
-            val_alpha = 0.0
-        else:
-            with torch.no_grad():
-                q, _ = next(iter(ssl_val_dl))
-                q = q.to(device, non_blocking=True).contiguous()
-                _ = model(q)
-                val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
-        print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
+        # if args.skip_alpha:
+        #     val_alpha = 0.0
+        # # else:
+        # #     with torch.no_grad():
+        # #         q, _ = next(iter(ssl_val_dl))
+        # #         q = q.to(device, non_blocking=True).contiguous()
+        # #         _ = model(q)
+        # #         val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
+        # print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
         # --------------------------
         # kNN + linear probe + PR (cadenced)
@@ -419,6 +426,9 @@ def main():
         pr_z = 0.0
         lam1_z = 0.0
         lammin_z = 0.0
+        bpi = 0.0
+        f_ev = 0.0
+        r_ev = 0.0
 
         if do_eval:
             if not args.skip_knn:
@@ -437,26 +447,42 @@ def main():
                     model, ssl_train_dl, device=device, batches=2, max_per_batch=64, use="z"
                 )
                 print(f"epoch {epoch+1} | PR(z) {pr_z:.1f} | lam1 {lam1_z:.3g} | lam_min {lammin_z:.3g}")
-
-        # --------------------------
-        # Neural EV (optional, expensive)
-        # --------------------------
-        if args.skip_neural_ev:
-            ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
-        else:
-            ev_dict = F_R_EV(
+            
+            if not args.skip_neural_ev:
+                ev_dict = F_R_EV(
                 model,
                 activation_layer=args.neural_ev_layer,
                 neural_data_dir=args.neural_data_dir,
                 alpha=0.5,
                 transforms=three_channel_transform,
                 reliability_threshold=0.7,
-                batch_size=4,
-            )
+                batch_size=4,)
+                bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
+                print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
+            # else:
+            #     ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
+            #     bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
 
-        bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
-        if not args.skip_neural_ev:
-            print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
+
+        # # --------------------------
+        # # Neural EV (optional, expensive)
+        # # --------------------------
+        # if args.skip_neural_ev:
+        #     ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
+        # else:
+        #     ev_dict = F_R_EV(
+        #         model,
+        #         activation_layer=args.neural_ev_layer,
+        #         neural_data_dir=args.neural_data_dir,
+        #         alpha=0.5,
+        #         transforms=three_channel_transform,
+        #         reliability_threshold=0.7,
+        #         batch_size=4,
+        #     )
+
+        # bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
+        # if not args.skip_neural_ev:
+        #     print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
 
         # --------------------------
         # Checkpointing
@@ -468,6 +494,7 @@ def main():
             "opt": optimizer.state_dict(),
             "args": vars(args),
             "best_ssl_val": best_ssl_val,
+            "best_linear_probe": best_linear_probe,
         }
 
         ckpt_dir = os.path.join(save_dir, "ckpts", "simclr") if save_dir else "ckpts/simclr"
@@ -479,6 +506,12 @@ def main():
             best_path = os.path.join(ckpt_dir, "best_ssl_val.pt")
             torch.save(ckpt, best_path)
             print(f"epoch {epoch+1} | new best ssl val {best_ssl_val:.4f} -> saved best_ssl_val.pt")
+
+        if lp_acc > best_linear_probe:
+            best_linear_probe = lp_acc
+            best_lp_path = os.path.join(ckpt_dir, "best_linear_probe.pt")
+            torch.save(ckpt, best_lp_path)
+            print(f"epoch {epoch+1} | new best linear probe {best_linear_probe:.2f}% -> saved best_linear_probe.pt")
 
         # --------------------------
         # Log row
