@@ -235,8 +235,9 @@ def main():
                 setattr(args, k, v)
         epochs_completed = ckpt.get("epoch", 0)
         args.epochs = epochs_completed + args.more_epochs
+        print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}")
         args.imagenet_root = image_net_root  
-        print(f"Resuming from checkpoint {args.ckpt_path}, continuing to epoch {args.epochs}")
+        print(f"Resuming from checkpoint {args.ckpt_path}, continuing to epoch {epochs_completed + 1}")
         save_dir = os.path.dirname(os.path.dirname(os.path.dirname(args.ckpt_path)))
         best_ssl_val = ckpt.get("best_ssl_val", float("inf"))
         best_linear_probe = ckpt.get("best_linear_probe", 0.0)
