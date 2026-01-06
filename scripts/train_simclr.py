@@ -226,6 +226,8 @@ def main():
     if args.command == "ckpt":
         # load checkpoint and override args
         ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
+        parent_dir = os.path.dirname(args.ckpt_path)
+        torch.save(ckpt, os.path.join(parent_dir, "previous_scinet_run.pt"))
         image_net_root = args.imagenet_root
         ckpt_args = ckpt.get("args", {})
         for k, v in ckpt_args.items():
