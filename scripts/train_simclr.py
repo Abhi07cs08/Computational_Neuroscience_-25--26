@@ -234,6 +234,7 @@ def main():
             if hasattr(args, k):
                 setattr(args, k, v)
         epochs_completed = ckpt.get("epoch", 0)
+        print(f"number of more epochs to train: {args.more_epochs}")
         args.epochs = epochs_completed + args.more_epochs
         print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}")
         args.imagenet_root = image_net_root  
