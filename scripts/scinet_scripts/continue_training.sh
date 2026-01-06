@@ -19,9 +19,9 @@ source $HOME/CompNeuro/Computational_Neuroscience_-25--26/.venv/bin/activate
 export PYTHONPATH=$PWD
 export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":$PYTHONPATH
 
-imagenet_root="${1-/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data}"
-ckpt_path="${2-/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/all_model_logs/sk_logs_spec_loss_0.0/start_20260101-221806/simclr/last.pt}"
-more_epochs="${3-1}"
+ckpt_path="${1-/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/all_model_logs/sk_logs_spec_loss_0.0/start_20260101-221806/simclr/last.pt}"
+more_epochs="${2-1}"
+imagenet_root="${3-/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data}"
 
 echo "Arguments: more_epochs=$more_epochs ckpt_path=$ckpt_path imagenet_root=$imagenet_root"
 
