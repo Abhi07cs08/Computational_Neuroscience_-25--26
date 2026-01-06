@@ -232,12 +232,12 @@ def main():
         ckpt_args = ckpt.get("args", {})
         for k, v in ckpt_args.items():
             if hasattr(args, k):
-                setattr(args, k, v)
+                if k not in ["epochs", "imagenet_root", "more_epochs", "ckpt_path"]:
+                    setattr(args, k, v)
         epochs_completed = ckpt.get("epoch", 0)
         print(f"number of more epochs to train: {args.more_epochs}")
         args.epochs = epochs_completed + args.more_epochs
-        print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}")
-        args.imagenet_root = image_net_root  
+        print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}") 
         print(f"Resuming from checkpoint {args.ckpt_path}, continuing to epoch {epochs_completed + 1}")
         save_dir = os.path.dirname(os.path.dirname(os.path.dirname(args.ckpt_path)))
         best_ssl_val = ckpt.get("best_ssl_val", float("inf"))
