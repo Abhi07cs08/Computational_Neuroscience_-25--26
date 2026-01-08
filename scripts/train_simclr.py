@@ -148,11 +148,19 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
     model.train()
     return float(pr.item()), float(lam1.item()), float(lam_min.item())
 
+# def parse_args_ckpt():
+#     ap = argparse.ArgumentParser()    
+    
+#     ap.add_argument("--ckpt_path", type=str, required=True)
+
+#     return ap.parse_args()
+
+
 
 def parse_args():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser()    
 
-    ap.add_argument("--imagenet_root", type=str, required=True)
+    ap.add_argument("--imagenet_root", type=str, required=False)
 
     # core
     ap.add_argument("--epochs", type=int, default=200)
@@ -203,12 +211,53 @@ def parse_args():
     # seed
     ap.add_argument("--seed", type=int, default=0)
 
+    subparser = ap.add_subparsers(dest="command")
+    ckpt_parser = subparser.add_parser("ckpt")
+    ckpt_parser.add_argument("--ckpt_path", type=str, required=True)
+    ckpt_parser.add_argument("--more_epochs", type=int, default=0)
+
     return ap.parse_args()
 
 
 def main():
     args = parse_args()
     set_seed(args.seed)
+
+    if args.command == "ckpt":
+        # load checkpoint and override args
+        ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
+        parent_dir = os.path.dirname(args.ckpt_path)
+        torch.save(ckpt, os.path.join(parent_dir, "previous_scinet_run.pt"))
+        image_net_root = args.imagenet_root
+        ckpt_args = ckpt.get("args", {})
+        for k, v in ckpt_args.items():
+            if hasattr(args, k):
+                if k not in ["epochs", "imagenet_root", "more_epochs", "ckpt_path"]:
+                    setattr(args, k, v)
+        epochs_completed = ckpt.get("epoch", 0)
+        print(f"number of more epochs to train: {args.more_epochs}")
+        args.epochs = epochs_completed + args.more_epochs
+        print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}") 
+        print(f"Resuming from checkpoint {args.ckpt_path}, continuing to epoch {epochs_completed + 1}")
+        save_dir = os.path.dirname(os.path.dirname(os.path.dirname(args.ckpt_path)))
+        best_ssl_val = ckpt.get("best_ssl_val", float("inf"))
+        best_linear_probe = ckpt.get("best_linear_probe", 0.0)
+
+    else:
+        # save dir
+        start_ts = time.strftime("%Y%m%d-%H%M%S")
+        save_dir = args.save_dir.strip()
+        if save_dir:
+            save_dir = os.path.join(save_dir, f"start_{start_ts}")
+            os.makedirs(save_dir, exist_ok=True)
+            os.makedirs(os.path.join(save_dir, "ckpts", "simclr"), exist_ok=True)
+            os.makedirs(os.path.join(save_dir, "logs"), exist_ok=True)
+        else:
+            os.makedirs("ckpts/simclr", exist_ok=True)
+            os.makedirs("logs", exist_ok=True)
+        epochs_completed = 0
+        best_ssl_val = float("inf")
+        best_linear_probe = 0.0
 
     # device preference
     if torch.cuda.is_available():
@@ -223,17 +272,7 @@ def main():
     amp_enabled = (args.amp and device == "cuda")
     scaler = GradScaler("cuda") if amp_enabled else None
 
-    # save dir
-    start_ts = time.strftime("%Y%m%d-%H%M%S")
-    save_dir = args.save_dir.strip()
-    if save_dir:
-        save_dir = os.path.join(save_dir, f"start_{start_ts}")
-        os.makedirs(save_dir, exist_ok=True)
-        os.makedirs(os.path.join(save_dir, "ckpts", "simclr"), exist_ok=True)
-        os.makedirs(os.path.join(save_dir, "logs"), exist_ok=True)
-    else:
-        os.makedirs("ckpts/simclr", exist_ok=True)
-        os.makedirs("logs", exist_ok=True)
+
 
     print(f"beta (spectral loss coeff): {args.spectral_loss_coeff}")
     print(f"tau={args.tau} bs={args.batch_size} lr={args.lr} wd={args.wd} warmup={args.warmup_epochs} epochs={args.epochs}")
@@ -279,10 +318,15 @@ def main():
     # Model + hooks
     # --------------------------
     model = SimCLR(out_dim=128).to(device)
+    if args.command == "ckpt":
+        model.load_state_dict(ckpt["model"])
+
     activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
     activationclass.register_hooks()
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
+    if args.command == "ckpt":
+        optimizer.load_state_dict(ckpt["opt"])
 
     # logging
     log_path = os.path.join(save_dir, "logs", "simclr_baseline.csv") if save_dir else "logs/simclr_baseline.csv"
@@ -299,16 +343,13 @@ def main():
         with open(log_path, "w", newline="") as f:
             csv.writer(f).writerow(header)
 
-    best_ssl_val = float("inf")
-    best_linear_probe = 0.0
-
     # --------------------------
     # Train
     # --------------------------
     model.train()
     steps_per_epoch = len(ssl_train_dl)
 
-    for epoch in range(args.epochs):
+    for epoch in range(epochs_completed, args.epochs):
         epoch_loss = 0.0
         n_steps = 0
 
