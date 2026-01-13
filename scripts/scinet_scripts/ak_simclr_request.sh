@@ -25,6 +25,7 @@ epochs="${3-200}"
 lr="${4-0.3}"
 grad_clip="${5-0.0}"
 warmup_epochs="${6-10}"
+more_args="${7-}"
 
 # Run the Python script
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/sk_logs_spec_loss_$spectral_loss_coeff" --tau 0.2 --lr $lr --wd 1e-6 --workers 16 --warmup_epochs $warmup_epochs --grad_clip $grad_clip --eval_every 5 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0 --neural_data_dir "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/metrics/neural_data" --spectral_loss_coeff $spectral_loss_coeff
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/train_simclr.py" --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --batch_size $batch_size --epochs $epochs --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/all_model_logs/sk_logs_spec_loss_$spectral_loss_coeff" --tau 0.2 --lr $lr --wd 1e-6 --workers 16 --warmup_epochs $warmup_epochs --grad_clip $grad_clip --eval_every 5 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0 --neural_data_dir "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/metrics/neural_data" --spectral_loss_coeff $spectral_loss_coeff $more_args

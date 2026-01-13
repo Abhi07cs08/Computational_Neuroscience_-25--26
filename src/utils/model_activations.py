@@ -9,11 +9,13 @@ class ModelActivations:
             def hook(module, inp, out):
                 # store a detached tensor to avoid keeping computation graph
                 try:
-                    self.activations[name] = out.detach()
+                    self.activations[name] = out
                 except Exception:
                     # out might be a tuple (e.g., some modules); try to detach each element
                     if isinstance(out, (list, tuple)):
-                        self.activations[name] = tuple(o.detach() if hasattr(o, 'detach') else o for o in out)
+                        # self.activations[name] = tuple(o.detach() if hasattr(o, 'detach') else o for o in out)
+                        self.activations[name] = tuple(o for o in out)
+
                     else:
                         self.activations[name] = out
             return hook

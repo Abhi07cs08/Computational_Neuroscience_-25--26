@@ -81,7 +81,6 @@ def build_ssl_train_loader(
         persistent_workers=(workers > 0),
     )
 
-
 def build_ssl_val_loader_deterministic(
     root,
     batch_size=256,
