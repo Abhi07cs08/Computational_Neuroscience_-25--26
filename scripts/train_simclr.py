@@ -380,6 +380,10 @@ def main():
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
                         l2, alpha = spectral_loss(acts, device)
+
+                        assert acts.requires_grad
+                        assert l2.requires_grad
+
                     else:
                         l2 = torch.tensor(0.0, device=device)
                         alpha = torch.tensor(0.0, device=device)
@@ -407,6 +411,10 @@ def main():
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
                     l2, alpha = spectral_loss(acts, device)
+
+                    assert acts.requires_grad
+                    assert l2.requires_grad
+
                 else:
                     l2 = torch.tensor(0.0, device=device)
                     alpha = torch.tensor(0.0, device=device)
