@@ -56,6 +56,7 @@ def split_half_reliability(X, n_splits=100, eps=1e-8):
 
 def filter_reliable(neural_data_dir="src/metrics/neural_data", reliability_threshold=0.7):
     matrix = torch.load(os.path.join(neural_data_dir, 'unordered_neural_repetitions.pt'))
+    print("len(unordered_neural_repetitions):", matrix.shape)
     print(matrix.shape)
     r = split_half_reliability(matrix)
     mask = r>=0.7
@@ -72,6 +73,7 @@ class NeuralDataStimuli(Dataset):
         self.stimulus.sort(key=lambda x: int(x.split('.')[0]))
         self.transform = trnsfrms
         self.groups = torch.load(os.path.join(neural_data_dir, 'stimulus_categories.pt'))
+        print(f"shape of groups: {len(self.groups)} shape of stimulus: {len(self.stimulus)} shape of neural data: {self.neural_data.shape}")
 
     def __len__(self):
         return len(self.stimulus)
@@ -232,16 +234,34 @@ if __name__ == "__main__":
     from src.models.basic_cnn import BasicCNN
     from torchvision import transforms
     from torchvision import models
+    from torchvision import models
+    import torch
 
-    resnet18 = models.resnet18(pretrained=True)
-    cnn = BasicCNN(in_channels=1, out_channels=10)
-    model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
+    # resnet18 = models.resnet18(pretrained=True)
+    # cnn = BasicCNN(in_channels=1, out_channels=10)
+    # model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
 
 
-    EV_score = F_R_EV(cnn, activation_layer="fc1", neural_data_dir="src/metrics/neural_data", alpha=0.1, transforms=stimuli_transform, reliability_threshold=0.7)
-    print(EV_score)
-    # EV_score_resnet_50 = F_R_EV(benchmark, model, activation_layer="layer4.0.bn1", alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
+    # EV_score = F_R_EV(cnn, activation_layer="fc1", neural_data_dir="src/metrics/neural_data", alpha=0.1, transforms=stimuli_transform, reliability_threshold=0.7)
+    # print(EV_score)
+    # # EV_score_resnet_50 = F_R_EV(benchmark, model, activation_layer="layer4.0.bn1", alpha=0.5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
+    # # print(EV_score_resnet_50)
+
+    # # EV_score_resnet = F_R_EV(benchmark, resnet18, activation_layer="layer4.0.bn1", alpha=0.1, transforms=three_channel_transform, reliability_threshold=0.7)
+    # # print(EV_score_resnet)
+
+    # model = torch.hub.load('facebookresearch/dino:main', 'dino_resnet50')
+    # EV_score_resnet_50 = F_R_EV( model, activation_layer="layer4.0.bn1", neural_data_dir="src/metrics/neural_data", alpha=0.5, splits=5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
     # print(EV_score_resnet_50)
 
-    # EV_score_resnet = F_R_EV(benchmark, resnet18, activation_layer="layer4.0.bn1", alpha=0.1, transforms=three_channel_transform, reliability_threshold=0.7)
-    # print(EV_score_resnet)
+    model = models.resnet50()
+    # # Remove the final FC so we only keep features
+    # model.fc = torch.nn.Identity()
+
+    # Load the weights
+    ckpt = torch.load("figures/resnet50-1x.pth", map_location="cpu")
+    model.load_state_dict(ckpt, strict=False)
+
+    model.eval()
+    EV_score_resnet_50 = F_R_EV( model, activation_layer="layer4.0.bn1", neural_data_dir="src/metrics/neural_data", alpha=0.5, splits=5, transforms=three_channel_transform, reliability_threshold=0.7, batch_size=4)
+    print(EV_score_resnet_50)

@@ -36,6 +36,36 @@ class SimCLR(nn.Module):
         z = F.normalize(z, dim=1)
         return z
     
+
+class AuxHead(nn.Module):
+    def __init__(self, in_dim, out_dim=8):
+        super().__init__()
+        self.fc = nn.Linear(in_dim, out_dim)
+
+    def forward(self, x):
+        out = self.fc(x)
+        return out
+
+class SimCLR_Aux(nn.Module):
+    def __init__(self, out_dim=128):
+        super().__init__()
+        base = resnet50(weights=None)
+        feat_dim = base.fc.in_features
+        base.fc = nn.Identity()
+        self.encoder = base
+        self.aux_head = AuxHead(feat_dim, out_dim=8)
+        self.proj = ProjectionHead(feat_dim, 2048, out_dim)
+
+    def forward(self, x):
+        # avoid channels_last; keep contiguous to dodge .view() stride issues
+        x = x.contiguous()
+        h = self.encoder(x)
+        aux_z = self.aux_head(h)
+        h = h.contiguous()
+        z = self.proj(h)
+        z = F.normalize(z, dim=1)
+        return z, aux_z
+    
 activations = {}
 def save_activation(name):
     def hook(module, input, output):

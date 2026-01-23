@@ -337,7 +337,7 @@ def main():
         "PR_z", "lam1_z", "lam_min_z",
         "alpha", "beta",
         "BPI", "F_EV", "R_EV",
-        "device", "seed",
+        "device", "seed", "spec_loss_warmup_epochs"
     ]
     if not os.path.exists(log_path):
         with open(log_path, "w", newline="") as f:
@@ -380,6 +380,10 @@ def main():
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
                         l2, alpha = spectral_loss(acts, device)
+
+                        assert acts.requires_grad
+                        assert l2.requires_grad
+
                     else:
                         l2 = torch.tensor(0.0, device=device)
                         alpha = torch.tensor(0.0, device=device)
@@ -407,6 +411,10 @@ def main():
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
                     l2, alpha = spectral_loss(acts, device)
+
+                    assert acts.requires_grad
+                    assert l2.requires_grad
+
                 else:
                     l2 = torch.tensor(0.0, device=device)
                     alpha = torch.tensor(0.0, device=device)
@@ -564,7 +572,7 @@ def main():
             pr_z, lam1_z, lammin_z,
             val_alpha, args.spectral_loss_coeff,
             bpi, f_ev, r_ev,
-            device, args.seed,
+            device, args.seed, args.spectral_loss_warmup_epochs
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
