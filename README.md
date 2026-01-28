@@ -12,4 +12,4 @@ Goal: explore how representation geometry (participation ratio, spectral slope) 
 
 ### Authors
 Abhinn Kaushik and Samuel Kostousov 
-Computational Neuroscience Research 2025
+Computational Neuroscience Research 2025-26
