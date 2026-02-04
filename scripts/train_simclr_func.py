@@ -160,109 +160,35 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
 #     return ap.parse_args()
 
 
-
-def parse_args():
-    ap = argparse.ArgumentParser()    
-
-    ap.add_argument("--imagenet_root", type=str, required=False)
-
-    # core
-    ap.add_argument("--epochs", type=int, default=200)
-    ap.add_argument("--batch_size", type=int, default=256)
-    ap.add_argument("--img_size", type=int, default=224)
-    ap.add_argument("--tau", type=float, default=0.2)
-    ap.add_argument("--lr", type=float, default=0.3)
-    ap.add_argument("--wd", type=float, default=1e-6)
-    ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--accum_steps", type=int, default=1)
-    ap.add_argument("--warmup_epochs", type=int, default=10)
-
-    # stability toggles
-    ap.add_argument("--amp", action="store_true")
-    ap.add_argument("--grad_clip", type=float, default=0.0, help="0 disables")
-
-    # subset bring-up
-    ap.add_argument("--limit_train", type=int, default=None)
-    ap.add_argument("--limit_val", type=int, default=None)
-
-    # logging + saving
-    ap.add_argument("--log_every", type=int, default=50)
-    ap.add_argument("--save_dir", type=str, default="", help="empty disables")
-
-    # metrics switches
-    ap.add_argument("--skip_knn", action="store_true")
-    ap.add_argument("--skip_alpha", action="store_true")
-    ap.add_argument("--skip_neural_ev", action="store_true")
-    ap.add_argument("--skip_linear_probe", action="store_true")
-    ap.add_argument("--skip_pr", action="store_true")
-
-    # evaluation cadence
-    ap.add_argument("--eval_every", type=int, default=10, help="run knn/linear probe/pr every N epochs")
-
-    # linear probe specifics
-    ap.add_argument("--lp_epochs", type=int, default=5)
-    ap.add_argument("--lp_lr", type=float, default=0.1)
-    ap.add_argument("--lp_wd", type=float, default=0.0)
-
-    # spectral loss
-    ap.add_argument("--spectral_loss_coeff", type=float, default=0.0)
-    ap.add_argument("--spectral_loss_warmup_epochs", type=int, default=0)
-
-    # neural EV
-    ap.add_argument("--neural_ev_layer", type=str, default="encoder.layer4.0.bn1")
-    # ap.add_argument("--neural_data_dir", type=str, default="src/metrics/neural_data")
-    ap.add_argument("--neural_data_dir", type=str, default="src/REVERSE_PRED_FINAL/majajhong_cache")
-
-    # seed
-    ap.add_argument("--seed", type=int, default=0)
-
-    subparser = ap.add_subparsers(dest="command")
-    ckpt_parser = subparser.add_parser("ckpt")
-    ckpt_parser.add_argument("--ckpt_path", type=str, required=True)
-    ckpt_parser.add_argument("--more_epochs", type=int, default=0)
-
-    return ap.parse_args()
-
-
-def main():
-    args = parse_args()
-    set_seed(args.seed)
-
-    if args.command == "ckpt":
-        # load checkpoint and override args
-        ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
-        parent_dir = os.path.dirname(args.ckpt_path)
-        torch.save(ckpt, os.path.join(parent_dir, "previous_scinet_run.pt"))
-        image_net_root = args.imagenet_root
-        ckpt_args = ckpt.get("args", {})
-        for k, v in ckpt_args.items():
-            if hasattr(args, k):
-                if k not in ["epochs", "imagenet_root", "more_epochs", "ckpt_path"]:
-                    setattr(args, k, v)
-        epochs_completed = ckpt.get("epoch", 0)
-        print(f"number of more epochs to train: {args.more_epochs}")
-        args.epochs = epochs_completed + args.more_epochs
-        print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}") 
-        print(f"Resuming from checkpoint {args.ckpt_path}, continuing to epoch {epochs_completed + 1}")
-        save_dir = os.path.dirname(os.path.dirname(os.path.dirname(args.ckpt_path)))
-        best_ssl_val = ckpt.get("best_ssl_val", float("inf"))
-        best_linear_probe = ckpt.get("best_linear_probe", 0.0)
-
-    else:
+def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, lr=0.3, wd=1e-6, workers=8,
+         accum_steps=1, warmup_epochs=10, amp=False, grad_clip=0.0, limit_train=None, limit_val=None,
+         log_every=50, save_dir="", skip_knn=False, skip_alpha=False, skip_neural_ev=False,
+         skip_linear_probe=False, skip_pr=False, eval_every=10, lp_epochs=5, lp_lr=0.1, lp_wd=0.0,
+         spectral_loss_coeff=0.0, spectral_loss_warmup_epochs=0, neural_ev_layer="encoder.layer4.0.bn1",
+         neural_data_dir="src/REVERSE_PRED_FINAL/majajhong_cache", seed=0,):
+    args = {"imagenet_root": imagenet_root, "epochs": epochs, "batch_size": batch_size,
+            "img_size": img_size, "tau": tau, "lr": lr, "wd": wd, "workers": workers, "accum_steps": accum_steps,
+            "warmup_epochs": warmup_epochs, "amp": amp, "grad_clip": grad_clip, "limit_train": limit_train, "limit_val": limit_val,
+            "log_every": log_every, "save_dir": save_dir, "skip_knn": skip_knn, "skip_alpha": skip_alpha, "skip_neural_ev": skip_neural_ev,
+            "skip_linear_probe": skip_linear_probe, "skip_pr": skip_pr, "eval_every": eval_every, "lp_epochs": lp_epochs, "lp_lr": lp_lr,
+            "lp_wd": lp_wd, "spectral_loss_coeff": spectral_loss_coeff, "spectral_loss_warmup_epochs": spectral_loss_warmup_epochs,
+            "neural_ev_layer": neural_ev_layer, "neural_data_dir": neural_data_dir, "seed": seed}
+    set_seed(seed)
+    
         # save dir
-        start_ts = time.strftime("%Y%m%d-%H%M%S")
-        save_dir = args.save_dir.strip()
-        if save_dir:
-            save_dir = os.path.join(save_dir, f"start_{start_ts}")
-            os.makedirs(save_dir, exist_ok=True)
-            os.makedirs(os.path.join(save_dir, "ckpts", "simclr"), exist_ok=True)
-            os.makedirs(os.path.join(save_dir, "logs"), exist_ok=True)
-        else:
-            os.makedirs("ckpts/simclr", exist_ok=True)
-            os.makedirs("logs", exist_ok=True)
-        epochs_completed = 0
-        best_ssl_val = float("inf")
-        best_linear_probe = 0.0
+    start_ts = time.strftime("%Y%m%d-%H%M%S")
+    save_dir = save_dir.strip()
+    if save_dir:
+        save_dir = os.path.join(save_dir, f"start_{start_ts}")
+        os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "ckpts", "simclr"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "logs"), exist_ok=True)
+    else:
+        os.makedirs("ckpts/simclr", exist_ok=True)
+        os.makedirs("logs", exist_ok=True)
+    epochs_completed = 0
+    best_ssl_val = float("inf")
+    best_linear_probe = 0.0
 
     # device preference
     if torch.cuda.is_available():
@@ -274,43 +200,43 @@ def main():
     print("Using device:", device)
 
     pin_memory = (device == "cuda")
-    amp_enabled = (args.amp and device == "cuda")
+    amp_enabled = (amp and device == "cuda")
     scaler = GradScaler("cuda") if amp_enabled else None
 
 
 
-    print(f"beta (spectral loss coeff): {args.spectral_loss_coeff}")
-    print(f"tau={args.tau} bs={args.batch_size} lr={args.lr} wd={args.wd} warmup={args.warmup_epochs} epochs={args.epochs}")
-    print(f"workers={args.workers} amp={amp_enabled} grad_clip={args.grad_clip}")
-    print(f"eval_every={args.eval_every} (knn/linear probe/pr), seed={args.seed}")
+    print(f"beta (spectral loss coeff): {spectral_loss_coeff}")
+    print(f"tau={tau} bs={batch_size} lr={lr} wd={wd} warmup={warmup_epochs} epochs={epochs}")
+    print(f"workers={workers} amp={amp_enabled} grad_clip={grad_clip}")
+    print(f"eval_every={eval_every} (knn/linear probe/pr), seed={seed}")
 
     # --------------------------
     # Loaders
     # --------------------------
     ssl_train_dl = build_ssl_train_loader(
-        root=args.imagenet_root,
-        batch_size=args.batch_size,
-        workers=args.workers,
-        img_size=args.img_size,
+        root=imagenet_root,
+        batch_size=batch_size,
+        workers=workers,
+        img_size=img_size,
         pin_memory=pin_memory,
-        limit_train=args.limit_train,
+        limit_train=limit_train,
     )
 
     ssl_val_dl = build_ssl_val_loader(
-        root=args.imagenet_root,
-        batch_size=args.batch_size,
-        workers=args.workers,
-        img_size=args.img_size,
+        root=imagenet_root,
+        batch_size=batch_size,
+        workers=workers,
+        img_size=img_size,
         pin_memory=pin_memory,
-        limit_val=args.limit_val,
+        limit_val=limit_val,
     )
 
     # clean eval loaders for kNN + linear probe
     eval_tr_dl, eval_va_dl = build_eval_loaders(
-        root=args.imagenet_root,
-        batch_size=args.batch_size,
-        workers=args.workers,
-        img_size=args.img_size,
+        root=imagenet_root,
+        batch_size=batch_size,
+        workers=workers,
+        img_size=img_size,
         pin_memory=pin_memory,
         limit_train=None,
         limit_val=None,
@@ -323,15 +249,11 @@ def main():
     # Model + hooks
     # --------------------------
     model = SimCLR(out_dim=128).to(device)
-    if args.command == "ckpt":
-        model.load_state_dict(ckpt["model"])
 
-    activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
+    activationclass = ModelActivations(model, layers=[neural_ev_layer])
     activationclass.register_hooks()
 
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
-    if args.command == "ckpt":
-        optimizer.load_state_dict(ckpt["opt"])
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=wd)
 
     # logging
     log_path = os.path.join(save_dir, "logs", "simclr_baseline.csv") if save_dir else "logs/simclr_baseline.csv"
@@ -354,7 +276,7 @@ def main():
     model.train()
     steps_per_epoch = len(ssl_train_dl)
 
-    for epoch in range(epochs_completed, args.epochs):
+    for epoch in range(epochs_completed, epochs):
         epoch_loss = 0.0
         n_steps = 0
 
@@ -366,12 +288,12 @@ def main():
 
             lr_now = cosine_lr_with_warmup(
                 optimizer,
-                base_lr=args.lr,
+                base_lr=lr,
                 epoch=epoch,
                 step_in_epoch=it,
                 steps_per_epoch=steps_per_epoch,
-                warmup_epochs=args.warmup_epochs,
-                total_epochs=args.epochs,
+                warmup_epochs=warmup_epochs,
+                total_epochs=epochs,
             )
 
             if amp_enabled:
@@ -379,11 +301,11 @@ def main():
                     z1 = model(q)
                     z2 = model(k)
                     # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                    l1 = info_nce(z1, z2, tau=args.tau)
+                    l1 = info_nce(z1, z2, tau=tau)
 
 
-                    if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
-                        acts = activationclass.activations[args.neural_ev_layer]
+                    if spectral_loss_coeff != 0.0 and epoch >= int(spectral_loss_warmup_epochs):
+                        acts = activationclass.activations[neural_ev_layer]
                         l2, alpha = spectral_loss(acts, device)
 
                         assert acts.requires_grad
@@ -393,15 +315,15 @@ def main():
                         l2 = torch.tensor(0.0, device=device)
                         alpha = torch.tensor(0.0, device=device)
 
-                    loss = l1 + args.spectral_loss_coeff * l2
-                    loss = loss / args.accum_steps
+                    loss = l1 + spectral_loss_coeff * l2
+                    loss = loss / accum_steps
 
                 scaler.scale(loss).backward()
 
-                if (it + 1) % args.accum_steps == 0:
-                    if args.grad_clip and args.grad_clip > 0:
+                if (it + 1) % accum_steps == 0:
+                    if grad_clip and grad_clip > 0:
                         scaler.unscale_(optimizer)
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
                     scaler.step(optimizer)
                     scaler.update()
@@ -411,10 +333,10 @@ def main():
                 z1 = model(q)
                 z2 = model(k)
                 # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                l1 = info_nce(z1, z2, tau=args.tau)
+                l1 = info_nce(z1, z2, tau=tau)
 
-                if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
-                    acts = activationclass.activations[args.neural_ev_layer]
+                if spectral_loss_coeff != 0.0 and epoch >= int(spectral_loss_warmup_epochs):
+                    acts = activationclass.activations[neural_ev_layer]
                     l2, alpha = spectral_loss(acts, device)
 
                     assert acts.requires_grad
@@ -424,20 +346,20 @@ def main():
                     l2 = torch.tensor(0.0, device=device)
                     alpha = torch.tensor(0.0, device=device)
 
-                loss = l1 + args.spectral_loss_coeff * l2
-                loss = loss / args.accum_steps
+                loss = l1 + spectral_loss_coeff * l2
+                loss = loss / accum_steps
                 loss.backward()
 
-                if (it + 1) % args.accum_steps == 0:
-                    if args.grad_clip and args.grad_clip > 0:
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+                if (it + 1) % accum_steps == 0:
+                    if grad_clip and grad_clip > 0:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
                     optimizer.step()
                     optimizer.zero_grad(set_to_none=True)
 
-            epoch_loss += loss.item() * args.accum_steps
+            epoch_loss += loss.item() * accum_steps
             n_steps += 1
 
-            if (it + 1) % args.log_every == 0:
+            if (it + 1) % log_every == 0:
                 print(f"epoch {epoch+1} iter {it+1}/{steps_per_epoch} lr {lr_now:.5f} loss {epoch_loss/max(1,n_steps):.4f} | alpha {alpha:.3f}")
 
         train_avg = epoch_loss / max(1, n_steps)
@@ -449,11 +371,11 @@ def main():
         ssl_val_avg, val_alpha = ssl_val_infonce_and_alpha(
             model,
             ssl_val_dl,
-            tau=args.tau,
+            tau=tau,
             device=device,
             activationclass=activationclass,
-            alpha_layer=args.neural_ev_layer,
-            compute_alpha=(not args.skip_alpha),
+            alpha_layer=neural_ev_layer,
+            compute_alpha=(not skip_alpha),
         )
         print(f"epoch {epoch+1} | ssl val InfoNCE {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
         
@@ -473,7 +395,7 @@ def main():
         # --------------------------
         # kNN + linear probe + PR (cadenced)
         # --------------------------
-        do_eval = ((epoch + 1) % args.eval_every == 0) or (epoch == 0)
+        do_eval = ((epoch + 1) % eval_every == 0) or (epoch == 0)
 
         knn_acc = 0.0
         lp_acc = 0.0
@@ -485,30 +407,30 @@ def main():
         r_ev = 0.0
 
         if do_eval:
-            if not args.skip_knn:
+            if not skip_knn:
                 knn_acc = knn_top1(model.encoder, eval_tr_dl, eval_va_dl, device=device, k=1)
                 print(f"epoch {epoch+1} | kNN(1) top1 {knn_acc:.2f}%")
 
-            if not args.skip_linear_probe:
+            if not skip_linear_probe:
                 lp_acc = linear_probe_top1(
                     model.encoder, eval_tr_dl, eval_va_dl, num_classes=num_classes,
-                    device=device, epochs=args.lp_epochs, lr=args.lp_lr, wd=args.lp_wd
+                    device=device, epochs=lp_epochs, lr=lp_lr, wd=lp_wd
                 )
                 print(f"epoch {epoch+1} | linear probe top1 {lp_acc:.2f}%")
 
-            if not args.skip_pr:
+            if not skip_pr:
                 pr_z, lam1_z, lammin_z = spectrum_pr(
                     model, ssl_train_dl, device=device, batches=2, max_per_batch=64, use="z"
                 )
                 print(f"epoch {epoch+1} | PR(z) {pr_z:.1f} | lam1 {lam1_z:.3g} | lam_min {lammin_z:.3g}")
             
-            if not args.skip_neural_ev:
-                neural_activations = np.load(os.path.join(args.neural_data_dir, "neural_activations.npy"))
+            if not skip_neural_ev:
+                neural_activations = np.load(os.path.join(neural_data_dir, "neural_activations.npy"))
 
                 model_activations, stimulus_ids = extract_model_activations_from_cache(
                         model=model,
-                        cache_dir=args.neural_data_dir,#"REVERSE_PRED_FINAL/majajhong_cache"
-                        layer_name=args.neural_ev_layer,  # Auto-detect
+                        cache_dir=neural_data_dir,#"REVERSE_PRED_FINAL/majajhong_cache"
+                        layer_name=neural_ev_layer,  # Auto-detect
                         batch_size=32
                     )
                 f_ev, r_ev = forward_ev(model_activations, neural_activations), reverse_ev(model_activations, neural_activations)
@@ -516,8 +438,8 @@ def main():
                 
                 # ev_dict = F_R_EV(
                 # model,
-                # activation_layer=args.neural_ev_layer,
-                # neural_data_dir=args.neural_data_dir,
+                # activation_layer=neural_ev_layer,
+                # neural_data_dir=neural_data_dir,
                 # alpha=0.5,
                 # transforms=three_channel_transform,
                 # reliability_threshold=0.7,
@@ -583,16 +505,17 @@ def main():
         # Log row
         # --------------------------
         row = [
-            ts, epoch + 1, optimizer.param_groups[0]["lr"], args.tau, args.batch_size, args.img_size,
+            ts, epoch + 1, optimizer.param_groups[0]["lr"], tau, batch_size, img_size,
             train_avg, ssl_val_avg,
             knn_acc, lp_acc,
             pr_z, lam1_z, lammin_z,
-            val_alpha, args.spectral_loss_coeff,
+            val_alpha, spectral_loss_coeff,
             bpi, f_ev, r_ev,
-            device, args.seed, args.spectral_loss_warmup_epochs
+            device, seed, spectral_loss_warmup_epochs
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
+    return bpi
 
 
 if __name__ == "__main__":
