@@ -27,6 +27,10 @@ from src.eval.linear_probe import linear_probe_top1
 
 from src.metrics.FR_EV_offline import F_R_EV, three_channel_transform
 
+from src.REVERSE_PRED_FINAL.ev_helper import forward_ev, reverse_ev
+from src.REVERSE_PRED_FINAL.model_acts import extract_model_activations_from_cache
+
+
 
 # Utilities
 def set_seed(seed: int):
@@ -241,7 +245,8 @@ def parse_args():
 
     # neural EV
     ap.add_argument("--neural_ev_layer", type=str, default="encoder.layer4.0.bn1")
-    ap.add_argument("--neural_data_dir", type=str, default="src/metrics/neural_data")
+    # ap.add_argument("--neural_data_dir", type=str, default="src/metrics/neural_data")
+    ap.add_argument("--neural_data_dir", type=str, default="src/REVERSE_PRED_FINAL/majajhong_cache")
 
     # seed
     ap.add_argument("--seed", type=int, default=0)
@@ -632,15 +637,27 @@ def main():
                 print(f"epoch {epoch+1} | PR(z) {pr_z:.1f} | lam1 {lam1_z:.3g} | lam_min {lammin_z:.3g}")
             
             if not args.skip_neural_ev:
-                ev_dict = F_R_EV(
-                model,
-                activation_layer=args.neural_ev_layer,
-                neural_data_dir=args.neural_data_dir,
-                alpha=0.5,
-                transforms=three_channel_transform,
-                reliability_threshold=0.7,
-                batch_size=4,)
-                bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
+                neural_activations = np.load(os.path.join(args.neural_data_dir, "neural_activations.npy"))
+
+                model_activations, stimulus_ids = extract_model_activations_from_cache(
+                        model=model,
+                        cache_dir=args.neural_data_dir,#"REVERSE_PRED_FINAL/majajhong_cache"
+                        layer_name=args.neural_ev_layer,  # Auto-detect
+                        batch_size=32
+                    )
+                f_ev, r_ev = forward_ev(model_activations, neural_activations), reverse_ev(model_activations, neural_activations)
+                bpi = 2*f_ev*r_ev/(f_ev + r_ev + 1e-12)
+                
+                # ev_dict = F_R_EV(
+                # model,
+                # activation_layer=args.neural_ev_layer,
+                # neural_data_dir=args.neural_data_dir,
+                # alpha=0.5,
+                # transforms=three_channel_transform,
+                # reliability_threshold=0.7,
+                # batch_size=4,)
+                # bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
+
                 print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
             # else:
             #     ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
