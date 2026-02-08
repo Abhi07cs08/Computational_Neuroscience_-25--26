@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --array 1-12%3
 #SBATCH --job-name=hpo_optuna_simclr_multi
-#SBATCH --time 01:00:00
+#SBATCH --time 20:00:00
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
