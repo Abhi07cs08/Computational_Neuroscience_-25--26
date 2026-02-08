@@ -163,14 +163,14 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
 def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, lr=0.3, wd=1e-6, workers=8,
          accum_steps=1, warmup_epochs=10, amp=False, grad_clip=0.0, limit_train=None, limit_val=None,
          log_every=50, save_dir="", skip_knn=False, skip_alpha=False, skip_neural_ev=False,
-         skip_linear_probe=False, skip_pr=False, eval_every=10, lp_epochs=5, lp_lr=0.1, lp_wd=0.0,
+         skip_linear_probe=False, skip_pr=False, lp_epochs=5, lp_lr=0.1, lp_wd=0.0,
          spectral_loss_coeff=0.0, spectral_loss_warmup_epochs=0, neural_ev_layer="encoder.layer4.0.bn1",
          neural_data_dir="src/REVERSE_PRED_FINAL/majajhong_cache", seed=0, single=True):
     args = {"imagenet_root": imagenet_root, "epochs": epochs, "batch_size": batch_size,
             "img_size": img_size, "tau": tau, "lr": lr, "wd": wd, "workers": workers, "accum_steps": accum_steps,
             "warmup_epochs": warmup_epochs, "amp": amp, "grad_clip": grad_clip, "limit_train": limit_train, "limit_val": limit_val,
             "log_every": log_every, "save_dir": save_dir, "skip_knn": skip_knn, "skip_alpha": skip_alpha, "skip_neural_ev": skip_neural_ev,
-            "skip_linear_probe": skip_linear_probe, "skip_pr": skip_pr, "eval_every": eval_every, "lp_epochs": lp_epochs, "lp_lr": lp_lr,
+            "skip_linear_probe": skip_linear_probe, "skip_pr": skip_pr, "lp_epochs": lp_epochs, "lp_lr": lp_lr,
             "lp_wd": lp_wd, "spectral_loss_coeff": spectral_loss_coeff, "spectral_loss_warmup_epochs": spectral_loss_warmup_epochs,
             "neural_ev_layer": neural_ev_layer, "neural_data_dir": neural_data_dir, "seed": seed, "single": single}
     set_seed(seed)
@@ -395,7 +395,7 @@ def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, 
         # --------------------------
         # kNN + linear probe + PR (cadenced)
         # --------------------------
-        do_eval = ((epoch + 1) % eval_every == 0) or (epoch == 0)
+        do_eval = (epoch == epochs-1)
 
         knn_acc = 0.0
         lp_acc = 0.0

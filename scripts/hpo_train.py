@@ -17,7 +17,6 @@ def parse_args():
     ap.add_argument("--neural_data_dir", type=str, default="src/REVERSE_PRED_FINAL/majajhong_cache")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--save_dir", type=str, default="hpo_trials_results", help="directory to save trial results")
-    ap.add_argument("--eval_every", type=int, default=5)
     ap.add_argument("--lp_epochs", type=int, default=5)
     ap.add_argument("--lp_lr", type=float, default=0.1)
     ap.add_argument("--lp_wd", type=float, default=0.0)
@@ -58,7 +57,7 @@ def objective(trial):
             "img_size": args.image_size, "tau": args.tau, "lr": args.lr, "wd": args.wd, "workers": args.workers, "accum_steps": args.accum_steps,
             "warmup_epochs": args.warmup_epochs, "amp": args.amp, "grad_clip": args.grad_clip, "limit_train": args.limit_train, "limit_val": args.limit_val,
             "log_every": args.log_every, "save_dir": args.save_dir, "skip_knn": args.skip_knn, "skip_alpha": args.skip_alpha, "skip_neural_ev": args.skip_neural_ev,
-            "skip_linear_probe": args.skip_linear_probe, "skip_pr": args.skip_pr, "eval_every": args.eval_every, "lp_epochs": args.lp_epochs, "lp_lr": args.lp_lr,
+            "skip_linear_probe": args.skip_linear_probe, "skip_pr": args.skip_pr, "lp_epochs": args.lp_epochs, "lp_lr": args.lp_lr,
             "lp_wd": args.lp_wd, "spectral_loss_coeff": spectral_loss_coeff, "spectral_loss_warmup_epochs": spectral_loss_warmup_epochs,
             "neural_ev_layer": args.neural_ev_layer, "neural_data_dir": args.neural_data_dir, "seed": args.seed}
     bpi = main(**kwargs)
