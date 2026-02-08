@@ -165,14 +165,14 @@ def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, 
          log_every=50, save_dir="", skip_knn=False, skip_alpha=False, skip_neural_ev=False,
          skip_linear_probe=False, skip_pr=False, eval_every=10, lp_epochs=5, lp_lr=0.1, lp_wd=0.0,
          spectral_loss_coeff=0.0, spectral_loss_warmup_epochs=0, neural_ev_layer="encoder.layer4.0.bn1",
-         neural_data_dir="src/REVERSE_PRED_FINAL/majajhong_cache", seed=0,):
+         neural_data_dir="src/REVERSE_PRED_FINAL/majajhong_cache", seed=0, single=True):
     args = {"imagenet_root": imagenet_root, "epochs": epochs, "batch_size": batch_size,
             "img_size": img_size, "tau": tau, "lr": lr, "wd": wd, "workers": workers, "accum_steps": accum_steps,
             "warmup_epochs": warmup_epochs, "amp": amp, "grad_clip": grad_clip, "limit_train": limit_train, "limit_val": limit_val,
             "log_every": log_every, "save_dir": save_dir, "skip_knn": skip_knn, "skip_alpha": skip_alpha, "skip_neural_ev": skip_neural_ev,
             "skip_linear_probe": skip_linear_probe, "skip_pr": skip_pr, "eval_every": eval_every, "lp_epochs": lp_epochs, "lp_lr": lp_lr,
             "lp_wd": lp_wd, "spectral_loss_coeff": spectral_loss_coeff, "spectral_loss_warmup_epochs": spectral_loss_warmup_epochs,
-            "neural_ev_layer": neural_ev_layer, "neural_data_dir": neural_data_dir, "seed": seed}
+            "neural_ev_layer": neural_ev_layer, "neural_data_dir": neural_data_dir, "seed": seed, "single": single}
     set_seed(seed)
     
         # save dir
@@ -515,7 +515,10 @@ def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, 
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
-    return bpi
+    if single:
+        return bpi
+    else:
+        return f_ev, r_ev
 
 
 if __name__ == "__main__":
