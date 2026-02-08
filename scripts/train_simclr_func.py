@@ -480,7 +480,7 @@ def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, 
             "epoch": epoch + 1,
             "model": model.state_dict(),
             "opt": optimizer.state_dict(),
-            "args": vars(args),
+            "args": args,
             "best_ssl_val": best_ssl_val,
             "best_linear_probe": best_linear_probe,
         }
