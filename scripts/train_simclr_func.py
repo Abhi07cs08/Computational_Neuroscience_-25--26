@@ -208,7 +208,6 @@ def main(imagenet_root=None, epochs=300, batch_size=512, img_size=224, tau=0.2, 
     print(f"beta (spectral loss coeff): {spectral_loss_coeff}")
     print(f"tau={tau} bs={batch_size} lr={lr} wd={wd} warmup={warmup_epochs} epochs={epochs}")
     print(f"workers={workers} amp={amp_enabled} grad_clip={grad_clip}")
-    print(f"eval_every={eval_every} (knn/linear probe/pr), seed={seed}")
 
     # --------------------------
     # Loaders
