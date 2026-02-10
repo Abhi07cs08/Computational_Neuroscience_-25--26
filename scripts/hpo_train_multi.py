@@ -50,7 +50,8 @@ study = optuna.create_study(
 )
 
 def objective(trial):
-    spectral_loss_warmup_epochs = trial.suggest_int("spectral_loss_warmup_epochs", 0, 20, step=5)
+    # spectral_loss_warmup_epochs = trial.suggest_int("spectral_loss_warmup_epochs", 0, 20, step=5)
+    spectral_loss_warmup_epochs = 10
     spectral_loss_coeff = trial.suggest_float("spectral_loss_coeff", 0.0, 1.0, step=0.001)
     
     kwargs = {"imagenet_root": args.imagenet_root, "epochs": args.epochs, "batch_size": args.batch_size,

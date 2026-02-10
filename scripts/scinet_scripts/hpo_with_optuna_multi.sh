@@ -23,7 +23,7 @@ export PYTHONPATH=$PWD
 export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":$PYTHONPATH
 
 
-OTPUNA_STUDY_NAME="simclr_spec_reg_multi_hpo_study"
+OTPUNA_STUDY_NAME="simclr_spec_reg_multi_hpo_study_no_var_warmup"
 
 OPTUNA_DB=$SCRATCH/${OTPUNA_STUDY_NAME}.db
 
