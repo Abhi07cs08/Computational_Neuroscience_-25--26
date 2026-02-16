@@ -80,7 +80,7 @@ def compute_affinity_stats(t: torch.Tensor, thr: float = 0.7):
         thr: near-positive threshold on r_ij
 
     Returns:
-        dict with mean_r, median_r, tail95_r, frac_near
+        dict with mean_r, median_r, tail95_r, frac_near_pos
     """
     # cosine similarity
     r = t @ t.t()  # [-1, 1]
@@ -94,22 +94,43 @@ def compute_affinity_stats(t: torch.Tensor, thr: float = 0.7):
 
     mean_r = flat.mean().item()
     median_r = flat.median().item()
-    tail95_r = torch.quantile(flat, 0.95).item()
+    tail95_r = torch.quantile(flat.float(), 0.95).item()
     frac_near = (flat > thr).float().mean().item()
 
     return {
         "mean_r": mean_r,
         "median_r": median_r,
         "tail95_r": tail95_r,
-        "frac_near": frac_near,
+        "frac_near_pos": frac_near,
     }
 
 
 @torch.no_grad()
-def ssl_val_infonce_and_alpha(model, ssl_val_dl, tau, device,
-                              activationclass=None, alpha_layer=None,
-                              compute_alpha=True):
+def ssl_val_infonce_and_alpha(
+    model,
+    ssl_val_dl,
+    tau,
+    device,
+    activationclass=None,
+    alpha_layer=None,
+    compute_alpha=True,
+    *,
+    use_debiased: bool = False,
+    teacher=None,
+    teacher_feat: str = "encoder",
+    gamma: float = 1.0,
+):
+    """Validate using the SAME SSL objective as training.
+
+    - If `use_debiased` is False: standard InfoNCE.
+    - If `use_debiased` is True: debiased InfoNCE with teacher-derived weights.
+
+    Also optionally aggregates alpha over the full SSL val set.
+    """
     model.eval()
+    if teacher is not None:
+        teacher.eval()
+
     total_loss = 0.0
     n = 0
     alphas = []
@@ -120,7 +141,21 @@ def ssl_val_infonce_and_alpha(model, ssl_val_dl, tau, device,
 
         z1 = model(q)
         z2 = model(k)
-        loss = info_nce(z1, z2, tau=tau)
+
+        if use_debiased:
+            if teacher is None:
+                raise ValueError("ssl_val_infonce_and_alpha: use_debiased=True requires a teacher")
+            # Teacher features for affinity weights (no grad)
+            ht1 = teacher.encoder(q)
+            ht2 = teacher.encoder(k)
+            if teacher_feat == "encoder":
+                t1, t2 = ht1, ht2
+            else:
+                t1, t2 = teacher.proj(ht1), teacher.proj(ht2)
+
+            loss = debiased_info_nce(z1, z2, t1, t2, tau=tau, gamma=gamma)
+        else:
+            loss = info_nce(z1, z2, tau=tau)
 
         total_loss += loss.item()
         n += 1
@@ -318,6 +353,20 @@ def main():
         best_ssl_val = float("inf")
         best_linear_probe = 0.0
 
+    # imagenet_root validation
+    if (args.imagenet_root is None) or (str(args.imagenet_root).strip() == ""):
+        if args.command == "ckpt":
+            # try to recover from checkpoint args if present
+            ckpt_args = ckpt.get("args", {}) if "ckpt" in locals() else {}
+            root_from_ckpt = ckpt_args.get("imagenet_root", "")
+            if str(root_from_ckpt).strip() != "":
+                args.imagenet_root = root_from_ckpt
+                print(f"imagenet_root not provided; using checkpoint imagenet_root={args.imagenet_root}")
+            else:
+                raise ValueError("--imagenet_root must be provided when resuming unless it exists in the checkpoint args")
+        else:
+            raise ValueError("--imagenet_root is required")
+
     # device preference
     if torch.cuda.is_available():
         device = "cuda"
@@ -380,10 +429,10 @@ def main():
     if args.command == "ckpt":
         model.load_state_dict(ckpt["model"])
 
-    # EMA teacher setup (encoder only)
+    # EMA teacher setup (full model: encoder + proj)
     teacher = None
     if args.use_ema_teacher:
-        teacher = copy.deepcopy(model.encoder).to(device)
+        teacher = copy.deepcopy(model).to(device)
         teacher.eval()
         for p in teacher.parameters():
             p.requires_grad_(False)
@@ -434,7 +483,7 @@ def main():
             "mean_r": [],
             "median_r": [],
             "tail95_r": [],
-            "frac_near": [],
+            "frac_near_pos": [],
         }
 
         optimizer.zero_grad(set_to_none=True)
@@ -461,8 +510,8 @@ def main():
                     if args.use_debiased:
                         # Teacher affinity weights (no grad)
                         with torch.no_grad():
-                            ht1 = teacher(q)
-                            ht2 = teacher(k)
+                            ht1 = teacher.encoder(q)
+                            ht2 = teacher.encoder(k)
 
                             if args.teacher_feat == "encoder":
                                 # Option B: encoder space (recommended for neural fidelity)
@@ -470,8 +519,8 @@ def main():
                                 t2 = ht2
                             else:
                                 # Option A: projection space (SimCLR-aligned)
-                                t1 = model.proj(ht1)
-                                t2 = model.proj(ht2)
+                                t1 = teacher.proj(ht1)
+                                t2 = teacher.proj(ht2)
                         # Affinity stats
                         with torch.no_grad():
                             t = torch.cat([F.normalize(t1.float(), dim=1),
@@ -485,7 +534,7 @@ def main():
 
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
-                        l2, alpha = spectral_loss(acts, device)
+                        alpha, l2 = spectral_loss(acts, device)
 
                         assert acts.requires_grad
                         assert l2.requires_grad
@@ -511,7 +560,7 @@ def main():
                     if teacher is not None:
                         with torch.no_grad():
                             m = float(args.ema_m)
-                            for ps, pt in zip(model.encoder.parameters(), teacher.parameters()):
+                            for ps, pt in zip(model.parameters(), teacher.parameters()):
                                 pt.data.mul_(m).add_(ps.data, alpha=1.0 - m)
 
                     optimizer.zero_grad(set_to_none=True)
@@ -523,8 +572,8 @@ def main():
                 if args.use_debiased:
                     # Teacher affinity weights (no grad)
                     with torch.no_grad():
-                        ht1 = teacher(q)
-                        ht2 = teacher(k)
+                        ht1 = teacher.encoder(q)
+                        ht2 = teacher.encoder(k)
 
                         if args.teacher_feat == "encoder":
                             # Option B: encoder space (recommended for neural fidelity)
@@ -532,8 +581,8 @@ def main():
                             t2 = ht2
                         else:
                             # Option A: projection space (SimCLR-aligned)
-                            t1 = model.proj(ht1)
-                            t2 = model.proj(ht2)
+                            t1 = teacher.proj(ht1)
+                            t2 = teacher.proj(ht2)
                     # Affinity stats
                     with torch.no_grad():
                         t = torch.cat([F.normalize(t1.float(), dim=1),
@@ -547,7 +596,7 @@ def main():
 
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
-                    l2, alpha = spectral_loss(acts, device)
+                    alpha, l2 = spectral_loss(acts, device)
 
                     assert acts.requires_grad
                     assert l2.requires_grad
@@ -569,7 +618,7 @@ def main():
                     if teacher is not None:
                         with torch.no_grad():
                             m = float(args.ema_m)
-                            for ps, pt in zip(model.encoder.parameters(), teacher.parameters()):
+                            for ps, pt in zip(model.parameters(), teacher.parameters()):
                                 pt.data.mul_(m).add_(ps.data, alpha=1.0 - m)
 
                     optimizer.zero_grad(set_to_none=True)
@@ -592,8 +641,13 @@ def main():
             activationclass=activationclass,
             alpha_layer=args.neural_ev_layer,
             compute_alpha=(not args.skip_alpha),
+            use_debiased=bool(args.use_debiased),
+            teacher=teacher,
+            teacher_feat=args.teacher_feat,
+            gamma=float(args.gamma),
         )
-        print(f"epoch {epoch+1} | ssl val InfoNCE {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
+        val_tag = "Debiased" if bool(args.use_debiased) else "InfoNCE"
+        print(f"epoch {epoch+1} | ssl val {val_tag} {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
         
         # Alpha metric (optional)
         # if args.skip_alpha:
@@ -717,9 +771,9 @@ def main():
             mean_r = float(np.mean(epoch_aff_stats["mean_r"]))
             median_r = float(np.mean(epoch_aff_stats["median_r"]))
             tail95_r = float(np.mean(epoch_aff_stats["tail95_r"]))
-            frac_near = float(np.mean(epoch_aff_stats["frac_near"]))
+            frac_near_pos = float(np.mean(epoch_aff_stats["frac_near_pos"]))
         else:
-            mean_r = median_r = tail95_r = frac_near = 0.0
+            mean_r = median_r = tail95_r = frac_near_pos = 0.0
 
         # Log row
         row = [
@@ -731,7 +785,7 @@ def main():
             bpi, f_ev, r_ev,
             device, args.seed, args.spectral_loss_warmup_epochs, int(args.use_debiased), float(args.gamma),
             args.teacher_feat,
-            mean_r, median_r, tail95_r, frac_near
+            mean_r, median_r, tail95_r, frac_near_pos
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
