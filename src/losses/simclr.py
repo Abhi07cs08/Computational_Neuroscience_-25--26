@@ -1,8 +1,6 @@
 import torch
 import torch.nn.functional as F
 
-
-# --- Affinity helpers ---
 def compute_affinity(t: torch.Tensor) -> torch.Tensor:
     """
     Compute semantic affinity matrix r_ij ∈ [0,1] from teacher features.
@@ -48,7 +46,7 @@ def affinity_stats(
     return {
         "mean_r": flat.mean().item() if flat.numel() > 0 else 0.0,
         "median_r": flat.median().item() if flat.numel() > 0 else 0.0,
-        "tail_r_95": flat.kthvalue(int(0.95 * flat.numel())).values.item() if flat.numel() > 0 else 0.0,
+        "tail_r_95": torch.quantile(flat.float(), 0.95).item() if flat.numel() > 0 else 0.0,
         "mean_near_pos": mean_near.item(),
         "frac_near_pos": frac_near,
     }
@@ -99,65 +97,60 @@ def debiased_info_nce(
     gamma: float = 1.0,
     eps: float = 1e-12,
 ) -> torch.Tensor:
-    """Debiased contrastive loss via teacher-derived affinity weights.
-
-    We compute a per-anchor weighted softmax over *all* non-self samples:
-        p(j|i) = w_ij * exp(sim_ij / tau) / sum_k!=i w_ik * exp(sim_ik / tau)
-
-    where weights are derived from teacher affinities:
-        r_ij = cosine(t_i, t_j) mapped to [0, 1]
-        w_ij ∝ (1 - r_ij)^gamma
-
-    This is implemented as adding log(w_ij) to the logits (row-wise), then using CE.
-
-    Args:
-        z1, z2: student projections [B, D]
-        t1, t2: teacher projections [B, D] (no grad)
-        tau: temperature
-        gamma: exponent controlling how aggressively we downweight similar negatives
-        eps: numerical stability
-
-    Returns:
-        scalar loss
     """
-    # student logits in float32 for AMP safety
+    Denominator-only debiased InfoNCE:
+      L_i = -log exp(sim(i,i+)/tau) / sum_{j != i} w_ij * exp(sim(i,j)/tau)
+
+    We implement this by:
+      logits = sim/tau
+      logits_neg = logits + log(w_ij)  (only for j != i and j != pos(i))
+      logits_pos = logits (no weight)
+      diag = -inf
+    """
+    # student projections in float32 for AMP safety
     z1 = F.normalize(z1.float(), dim=1)
     z2 = F.normalize(z2.float(), dim=1)
 
-    # teacher embeddings used only for weights
+    # teacher features used only for affinity
     t1 = F.normalize(t1.float(), dim=1)
     t2 = F.normalize(t2.float(), dim=1)
 
     B = z1.size(0)
+    N = 2 * B
 
     z = torch.cat([z1, z2], dim=0)  # [2B, D]
     t = torch.cat([t1, t2], dim=0)  # [2B, D]
 
     logits = (z @ z.t()) / float(tau)  # [2B, 2B] float32
 
-    # teacher cosine affinity in [-1, 1] -> map to [0, 1]
-    r = compute_affinity(t)
-
-    # mask self-similarity
-    diag = torch.eye(2 * B, device=logits.device, dtype=torch.bool)
-    logits = logits.masked_fill(diag, torch.finfo(logits.dtype).min)
-
-    # compute weights on off-diagonal entries
-    w = (1.0 - r).clamp(min=0.0).pow(float(gamma))
-    w = w.masked_fill(diag, 0.0)
-
-    # normalize per row over non-self samples
-    w = w / (w.sum(dim=1, keepdim=True) + eps)
-
-    # incorporate weights into softmax via log(w)
-    logw = torch.log(w + eps)
-    logw = logw.masked_fill(diag, torch.finfo(logw.dtype).min)
-
-    weighted_logits = logits + logw
-
+    # labels: i <-> i+B
     labels = torch.cat(
-        [torch.arange(B, 2 * B, device=logits.device), torch.arange(0, B, device=logits.device)],
+        [torch.arange(B, 2 * B, device=logits.device),
+         torch.arange(0, B, device=logits.device)],
         dim=0,
     )
+
+    # affinity in [0,1] before weighting
+    r = compute_affinity(t)  # diag already 0
+
+    # raw denominator weights (no normalization!)
+    w = (1.0 - r).clamp(min=0.0).pow(float(gamma))  # [N,N]
+
+    # build masks
+    diag = torch.eye(N, device=logits.device, dtype=torch.bool)
+    rows = torch.arange(N, device=logits.device)
+
+    # never include self
+    logits = logits.masked_fill(diag, torch.finfo(logits.dtype).min)
+    w = w.masked_fill(diag, 0.0)
+
+    # DO NOT weight the positive term: set w_pos = 1  (logw_pos = 0)
+    w[rows, labels] = 1.0
+
+    # add log-weights to logits (safe)
+    logw = torch.log(w + eps)
+
+    # Only denominator gets weights.
+    weighted_logits = logits + logw
 
     return F.cross_entropy(weighted_logits, labels)
