@@ -46,11 +46,12 @@ study = optuna.create_study(
     storage='sqlite:///{}'.format(args.optuna_db),
     study_name=args.optuna_study_name,
     load_if_exists=True,
-    direction='maximize'
+    directions=['maximize', 'maximize']
 )
 
 def objective(trial):
-    spectral_loss_warmup_epochs = trial.suggest_int("spectral_loss_warmup_epochs", 0, 20, step=5)
+    # spectral_loss_warmup_epochs = trial.suggest_int("spectral_loss_warmup_epochs", 0, 20, step=5)
+    spectral_loss_warmup_epochs = 10
     spectral_loss_coeff = trial.suggest_float("spectral_loss_coeff", 0.0, 1.0, step=0.001)
     
     kwargs = {"imagenet_root": args.imagenet_root, "epochs": args.epochs, "batch_size": args.batch_size,
@@ -59,8 +60,8 @@ def objective(trial):
             "log_every": args.log_every, "save_dir": args.save_dir, "skip_knn": args.skip_knn, "skip_alpha": args.skip_alpha, "skip_neural_ev": args.skip_neural_ev,
             "skip_linear_probe": args.skip_linear_probe, "skip_pr": args.skip_pr, "lp_epochs": args.lp_epochs, "lp_lr": args.lp_lr,
             "lp_wd": args.lp_wd, "spectral_loss_coeff": spectral_loss_coeff, "spectral_loss_warmup_epochs": spectral_loss_warmup_epochs,
-            "neural_ev_layer": args.neural_ev_layer, "neural_data_dir": args.neural_data_dir, "seed": args.seed}
-    bpi = main(**kwargs)
-    return bpi
+            "neural_ev_layer": args.neural_ev_layer, "neural_data_dir": args.neural_data_dir, "seed": args.seed, "single": False}
+    f_ev, r_ev = main(**kwargs)
+    return f_ev, r_ev
 
 study.optimize(objective, n_trials=1)
