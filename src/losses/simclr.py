@@ -74,7 +74,7 @@ def info_nce(z1: torch.Tensor, z2: torch.Tensor, tau: float = 0.2) -> torch.Tens
     z = torch.cat([z1, z2], dim=0)  # [2B, D]
 
     logits = (z @ z.t()) / float(tau)  # float32
-
+    
     # mask self-similarity
     diag = torch.eye(2 * B, device=logits.device, dtype=torch.bool)
     logits = logits.masked_fill(diag, torch.finfo(logits.dtype).min)
@@ -122,7 +122,7 @@ def debiased_info_nce(
     t = torch.cat([t1, t2], dim=0)  # [2B, D]
 
     logits = (z @ z.t()) / float(tau)  # [2B, 2B] float32
-
+    logits = logits.clamp(-50.0, 50.0)
     # labels: i <-> i+B
     labels = torch.cat(
         [torch.arange(B, 2 * B, device=logits.device),
@@ -146,9 +146,10 @@ def debiased_info_nce(
 
     # DO NOT weight the positive term: set w_pos = 1  (logw_pos = 0)
     w[rows, labels] = 1.0
-
+    w = w.clamp_min(eps)
     # add log-weights to logits (safe)
     logw = torch.log(w + eps)
+    logw = logw.masked_fill(diag, torch.finfo(logw.dtype).min)
 
     # Only denominator gets weights.
     weighted_logits = logits + logw

@@ -1,4 +1,3 @@
-# scripts/train_simclr.py
 import argparse
 import os
 import time

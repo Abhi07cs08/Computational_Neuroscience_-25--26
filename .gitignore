@@ -1,27 +1,11 @@
-# env
-.venv/
+.DS_Store
 __pycache__/
 *.pyc
-
-# outputs (ignore contents, keep dir via .gitkeep)
-logs/**
-!logs/.gitkeep
-runs/**
-!runs/.gitkeep
-ckpts/**
-!ckpts/.gitkeep
-exp/**
-!exp/.gitkeep
-
-.venv-py311
-imagenet1k/
-train_val/
-vision/
-vision
-src/metrics/download_FR_EV.ipynb
-src/metrics/neural_data/
-scripts/fetch_data_from_scinet.sh
-new_logs/
-figures/
-sk_log.md
-.gitignore
+*.ipynb_checkpoints/
+logs/
+runs/
+ckpts/
+*.png
+*.pdf
+*.csv
+*.xlsx
