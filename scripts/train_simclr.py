@@ -1,10 +1,10 @@
-# scripts/train_simclr.py
 import argparse
 import os
 import time
 import csv
 import random
 import numpy as np
+import copy
 
 import torch
 import torch.nn.functional as F
@@ -17,7 +17,7 @@ from src.datamod.imagenet_ssl import (
     build_eval_loaders,
 )
 from src.models.simclr_model import SimCLR
-from src.losses.simclr import info_nce
+from src.losses.simclr import info_nce, debiased_info_nce
 from src.losses.spectral_loss import spectral_loss, just_alpha
 from src.utils.model_activations import ModelActivations
 
@@ -31,9 +31,7 @@ from src.REVERSE_PRED_FINAL.model_acts import extract_model_activations_from_cac
 
 
 
-# --------------------------
 # Utilities
-# --------------------------
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -70,11 +68,68 @@ def cosine_lr_with_warmup(
     return lr
 
 
+# Affinity statistics helper
 @torch.no_grad()
-def ssl_val_infonce_and_alpha(model, ssl_val_dl, tau, device,
-                              activationclass=None, alpha_layer=None,
-                              compute_alpha=True):
+def compute_affinity_stats(t: torch.Tensor, thr: float = 0.7):
+    """
+    Compute summary statistics of teacher affinity matrix.
+
+    Args:
+        t: [2B, D] normalized teacher embeddings
+        thr: near-positive threshold on r_ij
+
+    Returns:
+        dict with mean_r, median_r, tail95_r, frac_near_pos
+    """
+    # cosine similarity
+    r = t @ t.t()  # [-1, 1]
+    r = 0.5 * (r + 1.0)  # -> [0, 1]
+
+    B2 = r.size(0)
+    diag = torch.eye(B2, device=r.device, dtype=torch.bool)
+    r = r.masked_fill(diag, float("nan"))
+
+    flat = r[~torch.isnan(r)]
+
+    mean_r = flat.mean().item()
+    median_r = flat.median().item()
+    tail95_r = torch.quantile(flat.float(), 0.95).item()
+    frac_near = (flat > thr).float().mean().item()
+
+    return {
+        "mean_r": mean_r,
+        "median_r": median_r,
+        "tail95_r": tail95_r,
+        "frac_near_pos": frac_near,
+    }
+
+
+@torch.no_grad()
+def ssl_val_infonce_and_alpha(
+    model,
+    ssl_val_dl,
+    tau,
+    device,
+    activationclass=None,
+    alpha_layer=None,
+    compute_alpha=True,
+    *,
+    use_debiased: bool = False,
+    teacher=None,
+    teacher_feat: str = "encoder",
+    gamma: float = 1.0,
+):
+    """Validate using the SAME SSL objective as training.
+
+    - If `use_debiased` is False: standard InfoNCE.
+    - If `use_debiased` is True: debiased InfoNCE with teacher-derived weights.
+
+    Also optionally aggregates alpha over the full SSL val set.
+    """
     model.eval()
+    if teacher is not None:
+        teacher.eval()
+
     total_loss = 0.0
     n = 0
     alphas = []
@@ -85,7 +140,21 @@ def ssl_val_infonce_and_alpha(model, ssl_val_dl, tau, device,
 
         z1 = model(q)
         z2 = model(k)
-        loss = info_nce(z1, z2, tau=tau)
+
+        if use_debiased:
+            if teacher is None:
+                raise ValueError("ssl_val_infonce_and_alpha: use_debiased=True requires a teacher")
+            # Teacher features for affinity weights (no grad)
+            ht1 = teacher.encoder(q)
+            ht2 = teacher.encoder(k)
+            if teacher_feat == "encoder":
+                t1, t2 = ht1, ht2
+            else:
+                t1, t2 = teacher.proj(ht1), teacher.proj(ht2)
+
+            loss = debiased_info_nce(z1, z2, t1, t2, tau=tau, gamma=gamma)
+        else:
+            loss = info_nce(z1, z2, tau=tau)
 
         total_loss += loss.item()
         n += 1
@@ -157,7 +226,7 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
     
 #     ap.add_argument("--ckpt_path", type=str, required=True)
 
-#     return ap.parse_args()
+#     return ap.parse_args() lol ignore this 
 
 
 
@@ -196,10 +265,10 @@ def parse_args():
     ap.add_argument("--skip_linear_probe", action="store_true")
     ap.add_argument("--skip_pr", action="store_true")
 
-    # evaluation cadence
+    # evaluation cadnce
     ap.add_argument("--eval_every", type=int, default=10, help="run knn/linear probe/pr every N epochs")
 
-    # linear probe specifics
+    # linear pro=be specifics
     ap.add_argument("--lp_epochs", type=int, default=5)
     ap.add_argument("--lp_lr", type=float, default=0.1)
     ap.add_argument("--lp_wd", type=float, default=0.0)
@@ -216,6 +285,25 @@ def parse_args():
     # seed
     ap.add_argument("--seed", type=int, default=0)
 
+    # EMA teacher (for debiasedcontrastive learning)
+    ap.add_argument("--use_ema_teacher", action="store_true", help="Enable EMA teacher over encoder")
+    ap.add_argument("--ema_m", type=float, default=0.996, help="EMA momentum for teacher update")
+
+    # Teacher feature space selection for affinity
+    ap.add_argument(
+        "--teacher_feat",
+        type=str,
+        default="encoder",
+        choices=["encoder", "proj"],
+        help="Which teacher features to use for affinity: encoder (Option B) or proj (Option A)",
+    )
+
+    # Debiased contrastive learning (teacher affinity weights)
+    ap.add_argument("--use_debiased", action="store_true",
+                    help="Use teacher affinity weights in InfoNCE denominator")
+    ap.add_argument("--gamma", type=float, default=1.0,
+                    help="Exponent for weights: w_ij ∝ (1 - r_ij)^gamma")
+
     subparser = ap.add_subparsers(dest="command")
     ckpt_parser = subparser.add_parser("ckpt")
     ckpt_parser.add_argument("--ckpt_path", type=str, required=True)
@@ -229,7 +317,7 @@ def main():
     set_seed(args.seed)
 
     if args.command == "ckpt":
-        # load checkpoint and override args
+        # load chckpoint and override args
         ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
         parent_dir = os.path.dirname(args.ckpt_path)
         torch.save(ckpt, os.path.join(parent_dir, "previous_scinet_run.pt"))
@@ -264,6 +352,20 @@ def main():
         best_ssl_val = float("inf")
         best_linear_probe = 0.0
 
+    # imagenet_root validation
+    if (args.imagenet_root is None) or (str(args.imagenet_root).strip() == ""):
+        if args.command == "ckpt":
+            # try to recover from checkpoint args if present
+            ckpt_args = ckpt.get("args", {}) if "ckpt" in locals() else {}
+            root_from_ckpt = ckpt_args.get("imagenet_root", "")
+            if str(root_from_ckpt).strip() != "":
+                args.imagenet_root = root_from_ckpt
+                print(f"imagenet_root not provided; using checkpoint imagenet_root={args.imagenet_root}")
+            else:
+                raise ValueError("--imagenet_root must be provided when resuming unless it exists in the checkpoint args")
+        else:
+            raise ValueError("--imagenet_root is required")
+
     # device preference
     if torch.cuda.is_available():
         device = "cuda"
@@ -283,10 +385,12 @@ def main():
     print(f"tau={args.tau} bs={args.batch_size} lr={args.lr} wd={args.wd} warmup={args.warmup_epochs} epochs={args.epochs}")
     print(f"workers={args.workers} amp={amp_enabled} grad_clip={args.grad_clip}")
     print(f"eval_every={args.eval_every} (knn/linear probe/pr), seed={args.seed}")
+    print(
+        f"debiased={bool(args.use_debiased)} gamma={args.gamma} "
+        f"ema_teacher={bool(args.use_ema_teacher)} teacher_feat={args.teacher_feat}"
+    )
 
-    # --------------------------
     # Loaders
-    # --------------------------
     ssl_train_dl = build_ssl_train_loader(
         root=args.imagenet_root,
         batch_size=args.batch_size,
@@ -319,12 +423,27 @@ def main():
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
     num_classes = len(base_ds.classes)
 
-    # --------------------------
     # Model + hooks
-    # --------------------------
     model = SimCLR(out_dim=128).to(device)
     if args.command == "ckpt":
         model.load_state_dict(ckpt["model"])
+
+    # EMA teacher setup (full model: encoder + proj)
+    teacher = None
+    if args.use_ema_teacher:
+        teacher = copy.deepcopy(model).to(device)
+        teacher.eval()
+        for p in teacher.parameters():
+            p.requires_grad_(False)
+
+        # If resuming, load teacher state if present
+        if args.command == "ckpt" and ("teacher" in ckpt) and (ckpt["teacher"] is not None):
+            teacher.load_state_dict(ckpt["teacher"])
+
+        print(f"EMA teacher enabled: ema_m={args.ema_m}")
+
+    if args.use_debiased and (teacher is None):
+        raise ValueError("--use_debiased requires --use_ema_teacher (EMA teacher not enabled)")
 
     activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
     activationclass.register_hooks()
@@ -342,21 +461,29 @@ def main():
         "PR_z", "lam1_z", "lam_min_z",
         "alpha", "beta",
         "BPI", "F_EV", "R_EV",
-        "device", "seed", "spec_loss_warmup_epochs"
+        "device", "seed", "spec_loss_warmup_epochs", "use_debiased", "gamma",
+        "teacher_feat",
+        "mean_r", "median_r", "tail95_r", "frac_near_pos"
     ]
     if not os.path.exists(log_path):
         with open(log_path, "w", newline="") as f:
             csv.writer(f).writerow(header)
 
-    # --------------------------
     # Train
-    # --------------------------
     model.train()
     steps_per_epoch = len(ssl_train_dl)
 
     for epoch in range(epochs_completed, args.epochs):
         epoch_loss = 0.0
         n_steps = 0
+
+        # Affinity stats accumulator
+        epoch_aff_stats = {
+            "mean_r": [],
+            "median_r": [],
+            "tail95_r": [],
+            "frac_near_pos": [],
+        }
 
         optimizer.zero_grad(set_to_none=True)
 
@@ -378,13 +505,35 @@ def main():
                 with autocast("cuda"):
                     z1 = model(q)
                     z2 = model(k)
-                    # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                    l1 = info_nce(z1, z2, tau=args.tau)
 
+                    if args.use_debiased:
+                        # Teacher affinity weights (no grad)
+                        with torch.no_grad():
+                            ht1 = teacher.encoder(q)
+                            ht2 = teacher.encoder(k)
+
+                            if args.teacher_feat == "encoder":
+                                # Option B: encoder space (recommended for neural fidelity)
+                                t1 = ht1
+                                t2 = ht2
+                            else:
+                                # Option A: projection space (SimCLR-aligned)
+                                t1 = teacher.proj(ht1)
+                                t2 = teacher.proj(ht2)
+                        # Affinity stats
+                        with torch.no_grad():
+                            t = torch.cat([F.normalize(t1.float(), dim=1),
+                                           F.normalize(t2.float(), dim=1)], dim=0)
+                            stats = compute_affinity_stats(t, thr=0.7)
+                            for k_stat in epoch_aff_stats:
+                                epoch_aff_stats[k_stat].append(stats[k_stat])
+                        l1 = debiased_info_nce(z1, z2, t1, t2, tau=args.tau, gamma=args.gamma)
+                    else:
+                        l1 = info_nce(z1, z2, tau=args.tau)
 
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
-                        l2, alpha = spectral_loss(acts, device)
+                        alpha, l2 = spectral_loss(acts, device)
 
                         assert acts.requires_grad
                         assert l2.requires_grad
@@ -405,17 +554,48 @@ def main():
 
                     scaler.step(optimizer)
                     scaler.update()
+
+                    # EMA update after the student step
+                    if teacher is not None:
+                        with torch.no_grad():
+                            m = float(args.ema_m)
+                            for ps, pt in zip(model.parameters(), teacher.parameters()):
+                                pt.data.mul_(m).add_(ps.data, alpha=1.0 - m)
+
                     optimizer.zero_grad(set_to_none=True)
 
             else:
                 z1 = model(q)
                 z2 = model(k)
-                # l1 = info_nce(z1, z2, tau=args.tau) / args.accum_steps
-                l1 = info_nce(z1, z2, tau=args.tau)
+
+                if args.use_debiased:
+                    # Teacher affinity weights (no grad)
+                    with torch.no_grad():
+                        ht1 = teacher.encoder(q)
+                        ht2 = teacher.encoder(k)
+
+                        if args.teacher_feat == "encoder":
+                            # Option B: encoder space (recommended for neural fidelity)
+                            t1 = ht1
+                            t2 = ht2
+                        else:
+                            # Option A: projection space (SimCLR-aligned)
+                            t1 = teacher.proj(ht1)
+                            t2 = teacher.proj(ht2)
+                    # Affinity stats
+                    with torch.no_grad():
+                        t = torch.cat([F.normalize(t1.float(), dim=1),
+                                       F.normalize(t2.float(), dim=1)], dim=0)
+                        stats = compute_affinity_stats(t, thr=0.7)
+                        for k_stat in epoch_aff_stats:
+                            epoch_aff_stats[k_stat].append(stats[k_stat])
+                    l1 = debiased_info_nce(z1, z2, t1, t2, tau=args.tau, gamma=args.gamma)
+                else:
+                    l1 = info_nce(z1, z2, tau=args.tau)
 
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
-                    l2, alpha = spectral_loss(acts, device)
+                    alpha, l2 = spectral_loss(acts, device)
 
                     assert acts.requires_grad
                     assert l2.requires_grad
@@ -432,6 +612,14 @@ def main():
                     if args.grad_clip and args.grad_clip > 0:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                     optimizer.step()
+
+                    # EMA update after the student step
+                    if teacher is not None:
+                        with torch.no_grad():
+                            m = float(args.ema_m)
+                            for ps, pt in zip(model.parameters(), teacher.parameters()):
+                                pt.data.mul_(m).add_(ps.data, alpha=1.0 - m)
+
                     optimizer.zero_grad(set_to_none=True)
 
             epoch_loss += loss.item() * args.accum_steps
@@ -443,9 +631,7 @@ def main():
         train_avg = epoch_loss / max(1, n_steps)
         print(f"--- Epoch {epoch+1} done | avg train loss {train_avg:.4f} ---")
 
-        # --------------------------
         # SSL val loss (proper)
-        # --------------------------
         ssl_val_avg, val_alpha = ssl_val_infonce_and_alpha(
             model,
             ssl_val_dl,
@@ -454,12 +640,15 @@ def main():
             activationclass=activationclass,
             alpha_layer=args.neural_ev_layer,
             compute_alpha=(not args.skip_alpha),
+            use_debiased=bool(args.use_debiased),
+            teacher=teacher,
+            teacher_feat=args.teacher_feat,
+            gamma=float(args.gamma),
         )
-        print(f"epoch {epoch+1} | ssl val InfoNCE {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
+        val_tag = "Debiased" if bool(args.use_debiased) else "InfoNCE"
+        print(f"epoch {epoch+1} | ssl val {val_tag} {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
         
-        # --------------------------
         # Alpha metric (optional)
-        # --------------------------
         # if args.skip_alpha:
         #     val_alpha = 0.0
         # # else:
@@ -470,9 +659,7 @@ def main():
         # #         val_alpha = float(just_alpha(activationclass.activations[args.neural_ev_layer], device=device).cpu().item())
         # print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
-        # --------------------------
         # kNN + linear probe + PR (cadenced)
-        # --------------------------
         do_eval = ((epoch + 1) % args.eval_every == 0) or (epoch == 0)
 
         knn_acc = 0.0
@@ -530,9 +717,9 @@ def main():
             #     bpi, f_ev, r_ev = ev_dict["BPI"], ev_dict["F_EV"], ev_dict["R_EV"]
 
 
-        # # --------------------------
+    
         # # Neural EV (optional, expensive)
-        # # --------------------------
+    
         # if args.skip_neural_ev:
         #     ev_dict = {"BPI": 0.0, "F_EV": 0.0, "R_EV": 0.0}
         # else:
@@ -550,14 +737,13 @@ def main():
         # if not args.skip_neural_ev:
         #     print(f"epoch {epoch+1} | BPI {bpi:.3f} | F_EV {f_ev:.3f} | R_EV {r_ev:.3f}")
 
-        # --------------------------
         # Checkpointing
-        # --------------------------
         ts = int(time.time())
         ckpt = {
             "epoch": epoch + 1,
             "model": model.state_dict(),
             "opt": optimizer.state_dict(),
+            "teacher": (teacher.state_dict() if teacher is not None else None),
             "args": vars(args),
             "best_ssl_val": best_ssl_val,
             "best_linear_probe": best_linear_probe,
@@ -579,9 +765,16 @@ def main():
             torch.save(ckpt, best_lp_path)
             print(f"epoch {epoch+1} | new best linear probe {best_linear_probe:.2f}% -> saved best_linear_probe.pt")
 
-        # --------------------------
+        # Affinity stats: compute epoch means
+        if args.use_debiased and len(epoch_aff_stats["mean_r"]) > 0:
+            mean_r = float(np.mean(epoch_aff_stats["mean_r"]))
+            median_r = float(np.mean(epoch_aff_stats["median_r"]))
+            tail95_r = float(np.mean(epoch_aff_stats["tail95_r"]))
+            frac_near_pos = float(np.mean(epoch_aff_stats["frac_near_pos"]))
+        else:
+            mean_r = median_r = tail95_r = frac_near_pos = 0.0
+
         # Log row
-        # --------------------------
         row = [
             ts, epoch + 1, optimizer.param_groups[0]["lr"], args.tau, args.batch_size, args.img_size,
             train_avg, ssl_val_avg,
@@ -589,7 +782,9 @@ def main():
             pr_z, lam1_z, lammin_z,
             val_alpha, args.spectral_loss_coeff,
             bpi, f_ev, r_ev,
-            device, args.seed, args.spectral_loss_warmup_epochs
+            device, args.seed, args.spectral_loss_warmup_epochs, int(args.use_debiased), float(args.gamma),
+            args.teacher_feat,
+            mean_r, median_r, tail95_r, frac_near_pos
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
