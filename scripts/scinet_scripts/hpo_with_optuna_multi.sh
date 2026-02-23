@@ -23,8 +23,11 @@ export PYTHONPATH=$PWD
 export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":$PYTHONPATH
 
 
-OTPUNA_STUDY_NAME="simclr_spec_reg_multi_hpo_study_no_var_warmup"
+
+OTPUNA_STUDY_NAME=${1-"simclr_spec_reg_multi_hpo_study_no_var_warmup"}
 
 OPTUNA_DB=$SCRATCH/${OTPUNA_STUDY_NAME}.db
 
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/hpo_train_multi.py" --optuna_db $OPTUNA_DB --optuna_study_name $OTPUNA_STUDY_NAME --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --epochs 200 --batch_size 512 --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/Feb_7_launch/sk_logs_spec_loss_optuna_multi_test" --tau 0.2 --lr 0.1 --wd 1e-6 --workers 16 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0 --neural_data_dir "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/REVERSE_PRED_FINAL/majajhong_cache"
+eval_args=${2-"--tune_spectral_loss"}
+
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/scripts/hpo_train_multi.py" --optuna_db $OPTUNA_DB --optuna_study_name $OTPUNA_STUDY_NAME --imagenet_root /home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/split_data --epochs 200 --batch_size 512 --save_dir "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/Feb_7_launch/sk_logs_spec_loss_optuna_multi_test" --tau 0.2 --lr 0.1 --wd 1e-6 --workers 16 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0 --neural_data_dir "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/REVERSE_PRED_FINAL/majajhong_cache" $eval_args  

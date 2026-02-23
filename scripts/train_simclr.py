@@ -16,9 +16,16 @@ from src.datamod.imagenet_ssl import (
     build_ssl_val_loader,
     build_eval_loaders,
 )
-from src.models.simclr_model import SimCLR
+
+from src.datamod.cifar10_ssl import (
+    build_ssl_train_loader_cifar10,
+    build_ssl_val_loader_cifar10,
+    build_eval_loaders_cifar10,
+)
+from src.models.simclr_model import SimCLR, SimCLR_Aux, downsizedSimCLR
 from src.losses.simclr import info_nce, debiased_info_nce
 from src.losses.spectral_loss import spectral_loss, just_alpha
+from src.losses.group_sparsity_loss import aux_loss
 from src.utils.model_activations import ModelActivations
 
 from src.eval.knn import knn_top1
@@ -26,8 +33,8 @@ from src.eval.linear_probe import linear_probe_top1
 
 from src.metrics.FR_EV_offline import F_R_EV, three_channel_transform
 
-from src.REVERSE_PRED_FINAL.ev_helper import forward_ev, reverse_ev
-from src.REVERSE_PRED_FINAL.model_acts import extract_model_activations_from_cache
+from src.latest_neural_data.ev_helper import forward_ev, reverse_ev
+from src.latest_neural_data.model_acts import extract_model_activations_from_cache
 
 
 
@@ -230,10 +237,12 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
 
 
 
-def parse_args():
-    ap = argparse.ArgumentParser()    
+def parse_args(ap=None):
+    if ap is None:
+        ap = argparse.ArgumentParser()    
 
     ap.add_argument("--imagenet_root", type=str, required=False)
+    ap.add_argument("--cifar10_root", type=str, required=False)
 
     # core
     ap.add_argument("--epochs", type=int, default=200)
@@ -245,6 +254,8 @@ def parse_args():
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--accum_steps", type=int, default=1)
     ap.add_argument("--warmup_epochs", type=int, default=10)
+
+    ap.add_argument("--downsized_resnet", action="store_true", help="Use resnet18 with fewer channels for faster iteration and testing")
 
     # stability toggles
     ap.add_argument("--amp", action="store_true")
@@ -276,7 +287,13 @@ def parse_args():
     # spectral loss
     ap.add_argument("--spectral_loss_coeff", type=float, default=0.0)
     ap.add_argument("--spectral_loss_warmup_epochs", type=int, default=0)
+    ap.add_argument("--target_alpha", type=float, default=1.0)
 
+    # auxiliary loss
+    ap.add_argument("--use_aux_loss", action="store_true", help="Use auxiliary loss (group sparsity + KL)")
+    ap.add_argument("--aux_loss_coeff", type=float, default=0.0)
+    ap.add_argument("--groupsize", type=int, default=8, help="Group size for auxiliary loss (only relevant if --use_aux_loss)")
+    
     # neural EV
     ap.add_argument("--neural_ev_layer", type=str, default="encoder.layer4.0.bn1")
     # ap.add_argument("--neural_data_dir", type=str, default="src/metrics/neural_data")
@@ -312,8 +329,11 @@ def parse_args():
     return ap.parse_args()
 
 
-def main():
-    args = parse_args()
+def main(args=None):
+    f_ev, r_ev = 0.0, 0.0
+
+    if args is None:
+        args = parse_args()
     set_seed(args.seed)
 
     if args.command == "ckpt":
@@ -353,17 +373,21 @@ def main():
         best_linear_probe = 0.0
 
     # imagenet_root validation
-    if (args.imagenet_root is None) or (str(args.imagenet_root).strip() == ""):
+    if ((args.imagenet_root is None) or (str(args.imagenet_root).strip() == "")) and ((args.cifar10_root is None) or (str(args.cifar10_root).strip() == "")):
         if args.command == "ckpt":
             # try to recover from checkpoint args if present
             ckpt_args = ckpt.get("args", {}) if "ckpt" in locals() else {}
-            root_from_ckpt = ckpt_args.get("imagenet_root", "")
-            if str(root_from_ckpt).strip() != "":
-                args.imagenet_root = root_from_ckpt
+            imagenet_root_from_ckpt = ckpt_args.get("imagenet_root", "")
+            cifar_root_from_ckpt = ckpt_args.get("cifar10_root", "")
+            if str(imagenet_root_from_ckpt).strip() != "":
+                args.imagenet_root = imagenet_root_from_ckpt
                 print(f"imagenet_root not provided; using checkpoint imagenet_root={args.imagenet_root}")
+            elif str(cifar_root_from_ckpt).strip() != "":
+                args.cifar10_root = cifar_root_from_ckpt
+                print(f"cifar10_root not provided; using checkpoint cifar10_root={args.cifar10_root}")
             else:
                 raise ValueError("--imagenet_root must be provided when resuming unless it exists in the checkpoint args")
-        else:
+        else:    
             raise ValueError("--imagenet_root is required")
 
     # device preference
@@ -391,26 +415,25 @@ def main():
     )
 
     # Loaders
-    ssl_train_dl = build_ssl_train_loader(
+    if args.imagenet_root:
+        ssl_train_dl = build_ssl_train_loader(
         root=args.imagenet_root,
         batch_size=args.batch_size,
         workers=args.workers,
         img_size=args.img_size,
         pin_memory=pin_memory,
         limit_train=args.limit_train,
-    )
-
-    ssl_val_dl = build_ssl_val_loader(
+        )
+        ssl_val_dl = build_ssl_val_loader(
         root=args.imagenet_root,
         batch_size=args.batch_size,
         workers=args.workers,
         img_size=args.img_size,
         pin_memory=pin_memory,
         limit_val=args.limit_val,
-    )
-
-    # clean eval loaders for kNN + linear probe
-    eval_tr_dl, eval_va_dl = build_eval_loaders(
+        )
+        # clean eval loaders for kNN + linear probe
+        eval_tr_dl, eval_va_dl = build_eval_loaders(
         root=args.imagenet_root,
         batch_size=args.batch_size,
         workers=args.workers,
@@ -418,13 +441,46 @@ def main():
         pin_memory=pin_memory,
         limit_train=None,
         limit_val=None,
-    )
+        )
+    elif args.cifar10_root:
+        ssl_train_dl = build_ssl_train_loader_cifar10(
+        root=args.cifar10_root,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        img_size=args.img_size,
+        pin_memory=pin_memory,
+        limit_train=args.limit_train,
+        )
+        ssl_val_dl = build_ssl_val_loader_cifar10(
+        root=args.cifar10_root,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        img_size=args.img_size,
+        pin_memory=pin_memory,
+        limit_val=args.limit_val,
+        )
+        # clean eval loaders for kNN + linear probe
+        eval_tr_dl, eval_va_dl = build_eval_loaders_cifar10(
+        root=args.cifar10_root,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        img_size=args.img_size,
+        pin_memory=pin_memory,
+        limit_train=None,
+        limit_val=None,
+        )
 
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
     num_classes = len(base_ds.classes)
 
     # Model + hooks
-    model = SimCLR(out_dim=128).to(device)
+    if args.use_aux_loss:
+        groupsize = args.groupsize
+        model = SimCLR_Aux(out_dim=128, group_size=groupsize).to(device)
+    elif args.downsized_resnet:
+        model = downsizedSimCLR(out_dim=128).to(device)
+    else:
+        model = SimCLR(out_dim=128).to(device)
     if args.command == "ckpt":
         model.load_state_dict(ckpt["model"])
 
@@ -503,8 +559,12 @@ def main():
 
             if amp_enabled:
                 with autocast("cuda"):
-                    z1 = model(q)
-                    z2 = model(k)
+                    if args.use_aux_loss:
+                        z1, aux1 = model(q)
+                        z2, aux2 = model(k)
+                    else:
+                        z1 = model(q)
+                        z2 = model(k)
 
                     if args.use_debiased:
                         # Teacher affinity weights (no grad)
@@ -533,7 +593,7 @@ def main():
 
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
-                        alpha, l2 = spectral_loss(acts, device)
+                        alpha, l2 = spectral_loss(acts, device, target_alpha=args.target_alpha)
 
                         assert acts.requires_grad
                         assert l2.requires_grad
@@ -541,6 +601,10 @@ def main():
                     else:
                         l2 = torch.tensor(0.0, device=device)
                         alpha = torch.tensor(0.0, device=device)
+
+                    if args.use_aux_loss:
+                        aux_loss = aux_loss(aux1, args.lam_aux)
+                        l2 = l2 + args.aux_loss_coeff * aux_loss
 
                     loss = l1 + args.spectral_loss_coeff * l2
                     loss = loss / args.accum_steps
@@ -595,7 +659,7 @@ def main():
 
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
-                    alpha, l2 = spectral_loss(acts, device)
+                    alpha, l2 = spectral_loss(acts, device, target_alpha=args.target_alpha)
 
                     assert acts.requires_grad
                     assert l2.requires_grad
@@ -660,7 +724,7 @@ def main():
         # print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
         # kNN + linear probe + PR (cadenced)
-        do_eval = ((epoch + 1) % args.eval_every == 0) or (epoch == 0)
+        do_eval = ((not (args.eval_every == 0)) and ((epoch + 1) % args.eval_every == 0)) or (epoch + 1 == args.epochs)
 
         knn_acc = 0.0
         lp_acc = 0.0
@@ -784,10 +848,13 @@ def main():
             bpi, f_ev, r_ev,
             device, args.seed, args.spectral_loss_warmup_epochs, int(args.use_debiased), float(args.gamma),
             args.teacher_feat,
-            mean_r, median_r, tail95_r, frac_near_pos
+            mean_r, median_r, tail95_r, frac_near_pos,
+            args.downsized_resnet, 
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
+    
+    return f_ev, r_ev
 
 
 if __name__ == "__main__":

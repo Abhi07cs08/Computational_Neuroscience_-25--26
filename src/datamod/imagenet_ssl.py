@@ -1,5 +1,6 @@
 # src/datamod/imagenet_ssl.py
 import os
+import torchvision
 import warnings
 import torch
 from torch.utils.data import DataLoader, Subset
