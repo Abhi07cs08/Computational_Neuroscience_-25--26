@@ -8,7 +8,7 @@ from types import SimpleNamespace
 ap = argparse.ArgumentParser()
 ap.add_argument("--optuna_study_name", type=str, default="study_name")
 ap.add_argument("--optuna_db", type=str, default="optuna.db")
-ap.add_argument("--tune_spectral_loss_coeff_weight", action="store_true")
+ap.add_argument("--tune_spectral_loss_coeff", action="store_true")
 ap.add_argument("--tune_target_alpha", action="store_true")
 ap.add_argument("--tune_temperature", action="store_true")
 
@@ -26,7 +26,7 @@ def objective(trial):
     if args.tune_temperature:
         args.tau = trial.suggest_float("tau", 0.05, 0.5, step=0.05)
         print(f"tau: {args.tau}")
-    if args.tune_spectral_loss_coeff_weight:
+    if args.tune_spectral_loss_coeff:
         args.spectral_loss_coeff = trial.suggest_float("spectral_loss_coeff", 0.0, 1.0, step=0.001)
         print(f"spectral_loss_coeff: {args.spectral_loss_coeff}")
     if args.tune_target_alpha:
