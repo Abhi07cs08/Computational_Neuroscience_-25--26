@@ -191,6 +191,16 @@ def get_neural_model_splithalfcorr_revamped(model_features, rate, ncomp=10, nrfo
     return 1.0, np.nanmean(neural_shc)
     # return 1.0, 1.0
 
+def get_neural_neural_splithalfcorr_revamped(rate1, rate2, ncomp=10, nrfolds=10, seed=0):
+
+    shc1 = get_splithalf_corr(rate1, ax=2)
+    shc2 = get_splithalf_corr(rate2, ax=2)
+
+    neural_shc1 = spearmanbrown_correction(shc1['split_half_corr'])
+    neural_shc2 = spearmanbrown_correction(shc2['split_half_corr'])
+
+    return neural_shc1, neural_shc2
+
 
 def get_all_preds(neurons_predicted, neurons_predictor, ncomp, model=None, monkey=None):
     if len(neurons_predicted.shape) == 3:
@@ -232,6 +242,9 @@ def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp):
 
     if len(neurons_predicted.shape) == 2 and len(neurons_predictor.shape) == 2:
         mshc, nshc = 1.0, 1.0
+
+    if len(neurons_predictor.shape) == 3 and len(neurons_predicted.shape) == 3:
+        mshc, nshc = get_neural_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     ev = predictivity(mean_target, p, nshc, mshc)  # Now p and mean_target are 2D
     return ev
