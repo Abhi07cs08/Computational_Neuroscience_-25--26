@@ -519,7 +519,7 @@ def main(args=None):
         "BPI", "F_EV", "R_EV",
         "device", "seed", "spec_loss_warmup_epochs", "use_debiased", "gamma",
         "teacher_feat",
-        "mean_r", "median_r", "tail95_r", "frac_near_pos"
+        "mean_r", "median_r", "tail95_r", "frac_near_pos", "downsized_resnet"
     ]
     if not os.path.exists(log_path):
         with open(log_path, "w", newline="") as f:
