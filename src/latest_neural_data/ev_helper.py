@@ -225,7 +225,7 @@ def predictivity(x, y, rho_xx, rho_yy):
     ev = (corrected_raw_corr ** 2) * 100
     return ev
 
-def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp):
+def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp, unrevamped=False):
     if len(neurons_predicted.shape) == 3:
         mean_target = np.nanmean(neurons_predicted, axis=2)   # shape: (n_images, n_target_neurons)
     else:
@@ -244,7 +244,10 @@ def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp):
         mshc, nshc = 1.0, 1.0
 
     if len(neurons_predictor.shape) == 3 and len(neurons_predicted.shape) == 3:
-        mshc, nshc = get_neural_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        if unrevamped:
+            mshc, nshc = get_neural_neural_splithalfcorr(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        else:
+            mshc, nshc = get_neural_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     ev = predictivity(mean_target, p, nshc, mshc)  # Now p and mean_target are 2D
     return ev
