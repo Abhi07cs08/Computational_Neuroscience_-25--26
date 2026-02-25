@@ -253,22 +253,22 @@ def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp, unrevamped=Fal
     return ev
 
 
-def reverse_ev(model_activations, neural_activations, full_ev_vector = False):
+def reverse_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False):
     responses = np.nanmean(neural_activations, axis=2)  
     prediction = get_all_preds(model_activations, responses, ncomp=20)
-    ev = get_all_stats(prediction, model_activations, neural_activations, ncomp=20)
+    ev = get_all_stats(prediction, model_activations, neural_activations, ncomp=20, unrevamped=unrevamped)
     if full_ev_vector:
         return ev
     else:
         return np.nanmean(ev)
 
-def forward_ev(model_activations, neural_activations, full_ev_vector = False):
+def forward_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False):
     shc = get_splithalf_corr(neural_activations, ax=2)["split_half_corr"]
     mask = shc > 0.7
     selected_rates = neural_activations[:, mask]
     selected_responses = np.nanmean(selected_rates, axis=2)
     prediction = get_all_preds(selected_responses, model_activations, ncomp=20)
-    ev = get_all_stats(prediction, selected_rates, model_activations, ncomp=20)
+    ev = get_all_stats(prediction, selected_rates, model_activations, ncomp=20, unrevamped=unrevamped)
     if full_ev_vector:
         return ev
     else:
