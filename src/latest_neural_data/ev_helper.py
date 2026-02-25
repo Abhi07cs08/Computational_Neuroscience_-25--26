@@ -199,7 +199,7 @@ def get_neural_neural_splithalfcorr_revamped(rate1, rate2, ncomp=10, nrfolds=10,
     neural_shc1 = spearmanbrown_correction(shc1['split_half_corr'])
     neural_shc2 = spearmanbrown_correction(shc2['split_half_corr'])
 
-    return neural_shc1, neural_shc2
+    return np.nanmean(neural_shc1), np.nanmean(neural_shc2)
 
 
 def get_all_preds(neurons_predicted, neurons_predictor, ncomp, model=None, monkey=None):
