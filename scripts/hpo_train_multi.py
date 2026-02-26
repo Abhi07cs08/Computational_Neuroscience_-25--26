@@ -51,4 +51,4 @@ def objective(trial):
     f_ev, r_ev = main(args)
     return f_ev, r_ev
 
-study.optimize(objective, n_trials=2)
+study.optimize(objective, n_trials=1)
