@@ -10,7 +10,6 @@ ap.add_argument("--optuna_study_name", type=str, default="study_name")
 ap.add_argument("--optuna_db", type=str, default="optuna.db")
 ap.add_argument("--tune_spectral_loss_coeff", action="store_true")
 ap.add_argument("--tune_target_alpha", action="store_true")
-ap.add_argument("--beta", type=float, default=0.1)
 ap.add_argument("--tune_temperature", action="store_true")
 
 args = parse_args(ap=ap)
@@ -32,8 +31,7 @@ def objective(trial):
         print(f"spectral_loss_coeff: {args.spectral_loss_coeff}")
     if args.tune_target_alpha:
         assert args.skip_alpha == False, "Cannot tune target_alpha if skip_alpha is True"
-        # assert args.spectral_loss_coeff != 0.0, "Cannot tune target_alpha if spectral_loss_coeff is 0.0"
-        args.spectral_loss_coeff = args.beta
+        assert args.spectral_loss_coeff != 0.0, "Cannot tune target_alpha if spectral_loss_coeff is 0.0"
         args.target_alpha = trial.suggest_float("target_alpha", 0.0, 2.0, step=0.5)
         print(f"target_alpha: {args.target_alpha}")
     

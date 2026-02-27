@@ -244,6 +244,8 @@ def parse_args(ap=None):
     ap.add_argument("--imagenet_root", type=str, required=False)
     ap.add_argument("--cifar10_root", type=str, required=False)
 
+    ap.add_argument("--tag", type=str, default="", help="Optional tag to identify the run (appended to save_dir)")
+
     # core
     ap.add_argument("--epochs", type=int, default=200)
     ap.add_argument("--batch_size", type=int, default=256)
@@ -361,7 +363,10 @@ def main(args=None):
         start_ts = time.strftime("%Y%m%d-%H%M%S")
         save_dir = args.save_dir.strip()
         if save_dir:
-            save_dir = os.path.join(save_dir, f"start_{start_ts}")
+            if args.tag != "":
+                save_dir = os.path.join(save_dir, f"start_{start_ts}_{args.tag}")
+            else:
+                save_dir = os.path.join(save_dir, f"start_{start_ts}")
             os.makedirs(save_dir, exist_ok=True)
             os.makedirs(os.path.join(save_dir, "ckpts", "simclr"), exist_ok=True)
             os.makedirs(os.path.join(save_dir, "logs"), exist_ok=True)
@@ -405,7 +410,7 @@ def main(args=None):
 
 
 
-    print(f"beta (spectral loss coeff): {args.spectral_loss_coeff}")
+    print(f"spectral loss coeff: {args.spectral_loss_coeff}")
     print(f"tau={args.tau} bs={args.batch_size} lr={args.lr} wd={args.wd} warmup={args.warmup_epochs} epochs={args.epochs}")
     print(f"workers={args.workers} amp={amp_enabled} grad_clip={args.grad_clip}")
     print(f"eval_every={args.eval_every} (knn/linear probe/pr), seed={args.seed}")
@@ -515,7 +520,7 @@ def main(args=None):
         "train_loss", "ssl_val_loss",
         "knn_top1", "linear_probe_top1",
         "PR_z", "lam1_z", "lam_min_z",
-        "alpha", "beta",
+        "alpha", "spectral_loss_coeff",
         "BPI", "F_EV", "R_EV",
         "device", "seed", "spec_loss_warmup_epochs", "use_debiased", "gamma",
         "teacher_feat",
@@ -762,7 +767,7 @@ def main(args=None):
                         layer_name=args.neural_ev_layer,  # Auto-detect
                         batch_size=32
                     )
-                f_ev, r_ev = forward_ev(model_activations, neural_activations), reverse_ev(model_activations, neural_activations)
+                f_ev, r_ev = forward_ev(model_activations, neural_activations, unrevamped=True), reverse_ev(model_activations, neural_activations)
                 bpi = 2*f_ev*r_ev/(f_ev + r_ev + 1e-12)
                 
                 # ev_dict = F_R_EV(
