@@ -34,7 +34,7 @@ for img_idx, stim_id in enumerate(unique_stimuli):
     neural_activations[img_idx, :, :n_reps_this] = stim_presentations.T
 
 
-cache_dir = Path("REVERSE_PRED_FINAL/majajhong_cache")
+cache_dir = Path("latest_neural_data/majajhong_cache")
 cache_dir.mkdir(parents=True, exist_ok=True)
 
 images_cache_dir = cache_dir / "images"

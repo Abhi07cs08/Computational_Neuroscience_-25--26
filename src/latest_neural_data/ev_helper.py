@@ -235,10 +235,16 @@ def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp, unrevamped=Fal
     #     mshc, nshc = get_neural_neural_splithalfcorr(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     if len(neurons_predicted.shape) == 2 and len(neurons_predictor.shape) == 3:
-        mshc, nshc = get_neural_model_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        if unrevamped:
+            mshc, nshc = get_model_neural_splithalfcorr(model_features=neurons_predictor, rate=neurons_predicted, ncomp=ncomp)
+        else:
+            mshc, nshc = get_neural_model_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     if len(neurons_predicted.shape) == 3 and len(neurons_predictor.shape) == 2:
-        mshc, nshc = get_model_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        if unrevamped:
+            mshc, nshc = get_model_neural_splithalfcorr(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        else:
+            mshc, nshc = get_model_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     if len(neurons_predicted.shape) == 2 and len(neurons_predictor.shape) == 2:
         mshc, nshc = 1.0, 1.0
