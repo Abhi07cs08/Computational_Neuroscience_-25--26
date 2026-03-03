@@ -34,7 +34,7 @@ def objective(trial):
     if args.tune_target_alpha:
         assert args.skip_alpha == False, "Cannot tune target_alpha if skip_alpha is True"
         assert args.spectral_loss_coeff != 0.0, "Cannot tune target_alpha if spectral_loss_coeff is 0.0"
-        args.target_alpha = trial.suggest_float("target_alpha", 0.0, 2.0, step=0.5)
+        args.target_alpha = trial.suggest_float("target_alpha", 0.0, 2.0, step=0.05)
         args.tag = "tuning_alpha"
         print(f"target_alpha: {args.target_alpha}")
     
