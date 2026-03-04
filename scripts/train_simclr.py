@@ -598,7 +598,7 @@ def main(args=None):
 
                     if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                         acts = activationclass.activations[args.neural_ev_layer]
-                        alpha, l2 = spectral_loss(acts, device, target_alpha=args.target_alpha)
+                        l2, alpha = spectral_loss(acts, device, target_alpha=args.target_alpha)
 
                         assert acts.requires_grad
                         assert l2.requires_grad
@@ -664,7 +664,7 @@ def main(args=None):
 
                 if args.spectral_loss_coeff != 0.0 and epoch >= int(args.spectral_loss_warmup_epochs):
                     acts = activationclass.activations[args.neural_ev_layer]
-                    alpha, l2 = spectral_loss(acts, device, target_alpha=args.target_alpha)
+                    l2, alpha = spectral_loss(acts, device, target_alpha=args.target_alpha)
 
                     assert acts.requires_grad
                     assert l2.requires_grad
@@ -854,7 +854,7 @@ def main(args=None):
             device, args.seed, args.spectral_loss_warmup_epochs, int(args.use_debiased), float(args.gamma),
             args.teacher_feat,
             mean_r, median_r, tail95_r, frac_near_pos,
-            args.downsized_resnet, 
+            args.downsized_resnet,
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
