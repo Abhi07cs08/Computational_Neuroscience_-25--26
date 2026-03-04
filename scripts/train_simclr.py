@@ -334,6 +334,8 @@ def parse_args(ap=None):
 def main(args=None):
     f_ev, r_ev = 0.0, 0.0
 
+    version = "fixed l2/alpha_03042026"
+
     if args is None:
         args = parse_args()
     set_seed(args.seed)
@@ -524,7 +526,7 @@ def main(args=None):
         "BPI", "F_EV", "R_EV",
         "device", "seed", "spec_loss_warmup_epochs", "use_debiased", "gamma",
         "teacher_feat",
-        "mean_r", "median_r", "tail95_r", "frac_near_pos", "downsized_resnet"
+        "mean_r", "median_r", "tail95_r", "frac_near_pos", "downsized_resnet", "save_note", "version"
     ]
     if not os.path.exists(log_path):
         with open(log_path, "w", newline="") as f:
@@ -822,16 +824,20 @@ def main(args=None):
         last_path = os.path.join(ckpt_dir, "last.pt")
         torch.save(ckpt, last_path)
 
+        save = "last.pt"
+
         if ssl_val_avg < best_ssl_val:
             best_ssl_val = ssl_val_avg
             best_path = os.path.join(ckpt_dir, "best_ssl_val.pt")
             torch.save(ckpt, best_path)
+            save = "best_ssl_val.pt"
             print(f"epoch {epoch+1} | new best ssl val {best_ssl_val:.4f} -> saved best_ssl_val.pt")
 
         if lp_acc > best_linear_probe:
             best_linear_probe = lp_acc
             best_lp_path = os.path.join(ckpt_dir, "best_linear_probe.pt")
             torch.save(ckpt, best_lp_path)
+            save = "best_linear_probe.pt"
             print(f"epoch {epoch+1} | new best linear probe {best_linear_probe:.2f}% -> saved best_linear_probe.pt")
 
         # Affinity stats: compute epoch means
@@ -854,7 +860,7 @@ def main(args=None):
             device, args.seed, args.spectral_loss_warmup_epochs, int(args.use_debiased), float(args.gamma),
             args.teacher_feat,
             mean_r, median_r, tail95_r, frac_near_pos,
-            args.downsized_resnet,
+            args.downsized_resnet, save, version
         ]
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(row)
