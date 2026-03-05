@@ -8,7 +8,7 @@ from torchvision.datasets import ImageFolder
 from PIL import ImageFile
 from src.datamod.twocrops import TwoCropsTransform, simclr_transform, ssl_deterministic_transform, eval_train_transform, eval_val_transform
 
-from src.datamod.twocrops import TwoCropsTransform, simclr_transform, eval_train_transform, eval_val_transform
+from src.datamod.twocrops import TwoCropsTransform, simclr_transform, eval_train_transform, eval_val_transform, simclr_transform_cifar, eval_train_transform_cifar, eval_val_transform_cifar
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -55,18 +55,18 @@ class SafeImageFolder(ImageFolder):
             warnings.warn(f"[WARN] Skipping {path}: {e}")
             return None
 
-
-def build_ssl_train_loader(
+def build_ssl_train_loader_cifar10(
     root,
     batch_size=256,
     workers=8,
-    img_size=224,
+    img_size=32,
     pin_memory=False,
-    limit_train=None,
-):
+    limit_train=None,):
+
     train_path = os.path.join(root, "train")
-    t = TwoCropsTransform(simclr_transform(img_size))
+    t = TwoCropsTransform(simclr_transform_cifar(img_size))
     ds = SafeImageFolder(root=train_path, transform=t)
+    # ds = torchvision.datasets.CIFAR10(root=root, train=True, transform=t, download=True)
 
     if limit_train is not None and limit_train < len(ds):
         ds = Subset(ds, list(range(limit_train)))
@@ -113,22 +113,17 @@ def build_ssl_val_loader_deterministic(
         persistent_workers=(workers > 0),
     )
 
-def build_ssl_val_loader(
+def build_ssl_val_loader_cifar10(
     root,
     batch_size=256,
     workers=8,
-    img_size=224,
+    img_size=32,
     pin_memory=False,
-    limit_val=None,
-):
-    """
-    SSL validation: MUST match SSL train distribution (two-crops with augment),
-    but evaluated with no grad.
-    """
-    val_path = os.path.join(root, "val")
-    t = TwoCropsTransform(simclr_transform(img_size))
-    ds = SafeImageFolder(root=val_path, transform=t)
+    limit_val=None,):
 
+    val_path = os.path.join(root, "test")
+    t = TwoCropsTransform(simclr_transform_cifar(img_size))
+    ds = SafeImageFolder(root=val_path, transform=t)
     if limit_val is not None and limit_val < len(ds):
         ds = Subset(ds, list(range(limit_val)))
 
@@ -143,26 +138,17 @@ def build_ssl_val_loader(
         persistent_workers=(workers > 0),
     )
 
-
-def build_eval_loaders(
+def build_eval_loaders_cifar10(
     root,
     batch_size=256,
     workers=8,
-    img_size=224,
+    img_size=32,
     pin_memory=False,
     limit_train=None,
-    limit_val=None,
-):
-    """
-    Downstream/eval: clean supervised transforms (NO SimCLR augment).
-    Used for kNN and linear probe (on encoder features).
-    """
-    tr_path = os.path.join(root, "train")
-    va_path = os.path.join(root, "val")
+    limit_val=None,):
 
-    tr_ds = SafeImageFolder(root=tr_path, transform=eval_train_transform(img_size))
-    va_ds = SafeImageFolder(root=va_path, transform=eval_val_transform(img_size))
-
+    tr_ds = SafeImageFolder(root=os.path.join(root, "train"), transform=eval_train_transform_cifar(img_size))
+    va_ds = SafeImageFolder(root=os.path.join(root, "test"), transform=eval_val_transform_cifar(img_size))
     if limit_train is not None and limit_train < len(tr_ds):
         tr_ds = Subset(tr_ds, list(range(limit_train)))
     if limit_val is not None and limit_val < len(va_ds):

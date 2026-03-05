@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import resnet50
+from torchvision.models import resnet50, resnet18
 
 
 class ProjectionHead(nn.Module):
@@ -16,6 +16,42 @@ class ProjectionHead(nn.Module):
     def forward(self, x):
         # ensure contiguous before Linear
         return self.net(x.contiguous())
+
+
+def resnet18_cifar_backbone():
+    """
+    Torchvision ResNet-18 modified for CIFAR-10/32x32:
+      - 3x3 conv, stride=1, padding=1
+      - remove maxpool
+      - keep rest identical
+    Returns a backbone that outputs a 512-dim feature vector (before any projection head).
+    """
+    m = resnet18(weights=None)
+
+    # CIFAR stem
+    m.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+    m.maxpool = nn.Identity()
+
+    # Keep the global average pool; remove classifier head
+    return m
+
+class downsizedSimCLR(nn.Module):
+    def __init__(self, out_dim=128):
+        super().__init__()
+        base = resnet18_cifar_backbone()
+        feat_dim = base.fc.in_features
+        base.fc = nn.Identity()
+        self.encoder = base
+        self.proj = ProjectionHead(feat_dim, 512, out_dim)
+
+    def forward(self, x):
+        # avoid channels_last; keep contiguous to dodge .view() stride issues
+        x = x.contiguous()
+        h = self.encoder(x)
+        h = h.contiguous()
+        z = self.proj(h)
+        z = F.normalize(z, dim=1)
+        return z
 
 
 class SimCLR(nn.Module):
@@ -47,13 +83,13 @@ class AuxHead(nn.Module):
         return out
 
 class SimCLR_Aux(nn.Module):
-    def __init__(self, out_dim=128):
+    def __init__(self, out_dim=128, group_size=8):
         super().__init__()
         base = resnet50(weights=None)
         feat_dim = base.fc.in_features
         base.fc = nn.Identity()
         self.encoder = base
-        self.aux_head = AuxHead(feat_dim, out_dim=8)
+        self.aux_head = AuxHead(feat_dim, out_dim=group_size)
         self.proj = ProjectionHead(feat_dim, 2048, out_dim)
 
     def forward(self, x):

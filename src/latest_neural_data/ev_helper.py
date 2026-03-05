@@ -191,6 +191,16 @@ def get_neural_model_splithalfcorr_revamped(model_features, rate, ncomp=10, nrfo
     return 1.0, np.nanmean(neural_shc)
     # return 1.0, 1.0
 
+def get_neural_neural_splithalfcorr_revamped(rate1, rate2, ncomp=10, nrfolds=10, seed=0):
+
+    shc1 = get_splithalf_corr(rate1, ax=2)
+    shc2 = get_splithalf_corr(rate2, ax=2)
+
+    neural_shc1 = spearmanbrown_correction(shc1['split_half_corr'])
+    neural_shc2 = spearmanbrown_correction(shc2['split_half_corr'])
+
+    return np.nanmean(neural_shc1), np.nanmean(neural_shc2)
+
 
 def get_all_preds(neurons_predicted, neurons_predictor, ncomp, model=None, monkey=None):
     if len(neurons_predicted.shape) == 3:
@@ -215,7 +225,7 @@ def predictivity(x, y, rho_xx, rho_yy):
     ev = (corrected_raw_corr ** 2) * 100
     return ev
 
-def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp):
+def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp, unrevamped=False):
     if len(neurons_predicted.shape) == 3:
         mean_target = np.nanmean(neurons_predicted, axis=2)   # shape: (n_images, n_target_neurons)
     else:
@@ -225,29 +235,47 @@ def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp):
     #     mshc, nshc = get_neural_neural_splithalfcorr(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     if len(neurons_predicted.shape) == 2 and len(neurons_predictor.shape) == 3:
-        mshc, nshc = get_neural_model_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        if unrevamped:
+            mshc, nshc = get_model_neural_splithalfcorr(model_features=neurons_predictor, rate=neurons_predicted, ncomp=ncomp)
+        else:
+            mshc, nshc = get_neural_model_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     if len(neurons_predicted.shape) == 3 and len(neurons_predictor.shape) == 2:
-        mshc, nshc = get_model_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        if unrevamped:
+            mshc, nshc = get_model_neural_splithalfcorr(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        else:
+            mshc, nshc = get_model_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     if len(neurons_predicted.shape) == 2 and len(neurons_predictor.shape) == 2:
         mshc, nshc = 1.0, 1.0
+
+    if len(neurons_predictor.shape) == 3 and len(neurons_predicted.shape) == 3:
+        if unrevamped:
+            mshc, nshc = get_neural_neural_splithalfcorr(neurons_predicted, neurons_predictor, ncomp=ncomp)
+        else:
+            mshc, nshc = get_neural_neural_splithalfcorr_revamped(neurons_predicted, neurons_predictor, ncomp=ncomp)
 
     ev = predictivity(mean_target, p, nshc, mshc)  # Now p and mean_target are 2D
     return ev
 
 
-def reverse_ev(model_activations, neural_activations):
+def reverse_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False):
     responses = np.nanmean(neural_activations, axis=2)  
     prediction = get_all_preds(model_activations, responses, ncomp=20)
-    ev = get_all_stats(prediction, model_activations, neural_activations, ncomp=20)
-    return np.nanmean(ev)
+    ev = get_all_stats(prediction, model_activations, neural_activations, ncomp=20, unrevamped=unrevamped)
+    if full_ev_vector:
+        return ev
+    else:
+        return np.nanmean(ev)
 
-def forward_ev(model_activations, neural_activations):
+def forward_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False):
     shc = get_splithalf_corr(neural_activations, ax=2)["split_half_corr"]
     mask = shc > 0.7
     selected_rates = neural_activations[:, mask]
     selected_responses = np.nanmean(selected_rates, axis=2)
     prediction = get_all_preds(selected_responses, model_activations, ncomp=20)
-    ev = get_all_stats(prediction, selected_rates, model_activations, ncomp=20)
-    return np.nanmean(ev)
+    ev = get_all_stats(prediction, selected_rates, model_activations, ncomp=20, unrevamped=unrevamped)
+    if full_ev_vector:
+        return ev
+    else:
+        return np.nanmean(ev)
