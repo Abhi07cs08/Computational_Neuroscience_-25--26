@@ -43,7 +43,7 @@ def extract_ckpt_args(ckpt_path, as_args=False):
         args = SimpleNamespace(**args)
     return args
 
-def extract_val_dl_from_ckpt(ckpt_path):
+def extract_val_dl_from_ckpt(ckpt_path, kwargs={}):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     if torch.cuda.is_available():
         device = "cuda"
@@ -54,6 +54,8 @@ def extract_val_dl_from_ckpt(ckpt_path):
     print("Using device:", device)
 
     pin_memory = (device == "cuda")
+    for key, value in kwargs.items():
+        setattr(args, key, value)
     eval_tr_dl, eval_va_dl = build_eval_loaders(
         root=args.imagenet_root,
         batch_size=args.batch_size,

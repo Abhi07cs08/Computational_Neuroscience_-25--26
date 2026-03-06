@@ -55,9 +55,9 @@ def linear_probe_top1(encoder, tr_dl, va_dl, num_classes, device,
         return (pred == yva).float().mean().item() * 100.0
 
 
-def linear_probe_standalone(ckpt_path):
+def linear_probe_standalone(ckpt_path, dl_kwargs = {"workers": 3}, lp_kwargs={}):
     args = extract_ckpt_args(ckpt_path, as_args=True)
-    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path)
+    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
     num_classes = len(base_ds.classes)
     model = SimCLR()
@@ -69,6 +69,8 @@ def linear_probe_standalone(ckpt_path):
         device = "mps"
     else:        device = "cpu"
     model = model.to(device)
+    for key, value in lp_kwargs.items():
+        setattr(args, key, value)
     top1 = linear_probe_top1(model.encoder, eval_tr_dl, eval_va_dl, num_classes=num_classes,
                     device=device, epochs=args.lp_epochs, lr=args.lp_lr, wd=args.lp_wd)
     return top1
@@ -111,9 +113,9 @@ def linear_probe_adversarial_robustness(encoder, va_dl, num_classes, device,
     
     return clean_acc, adv_acc
 
-def linear_probe_adversarial_robustness_standalone(ckpt_path, epsilon=8/255, num_steps=10, step_size=2/255):
+def linear_probe_adversarial_robustness_standalone(ckpt_path, dl_kwargs = {"workers": 3}, epsilon=8/255, num_steps=10, step_size=2/255):
     args = extract_ckpt_args(ckpt_path, as_args=True)
-    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path)
+    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
     num_classes = len(base_ds.classes)
     model = SimCLR()
