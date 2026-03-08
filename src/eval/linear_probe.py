@@ -36,6 +36,7 @@ def linear_probe_top1(encoder, tr_dl, va_dl, num_classes, device,
 
     n = Xtr.shape[0]
     for _ in range(epochs):
+        print(f"Epoch {_+1}/{epochs}")
         perm = torch.randperm(n, device=device)
         Xtr_shuf = Xtr[perm]
         ytr_shuf = ytr[perm]

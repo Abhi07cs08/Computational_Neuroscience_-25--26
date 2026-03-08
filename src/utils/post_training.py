@@ -95,7 +95,6 @@ def df_from_root_dir(root_dir):
     df = df_from_model_paths(model_paths)
     return df
 
-
 def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
     bins_num = 50
     bins = np.linspace(0, 100, bins_num)
@@ -141,3 +140,40 @@ def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computation
         plt.grid(axis="y", alpha=0.3)
         plt.tight_layout()
         plt.show()
+
+def plot_ev_ckpt(ckpt_path, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
+    bins_num = 50
+    bins = np.linspace(0, 100, bins_num)
+    neural_activations = np.load(os.path.join(neural_data_folder, "neural_activations.npy"))
+    print(ckpt_path)
+    model_weights = extract_model_weights(ckpt_path)
+    model = SimCLR()
+    model.load_state_dict(model_weights)
+    layer = 'encoder.layer4.1'
+
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+
+    model_activations, stimulus_ids = extract_model_activations_from_cache(
+        model=model,
+        cache_dir=neural_data_folder,#"REVERSE_PRED_FINAL/majajhong_cache"
+        layer_name=layer,
+        batch_size=32
+    )
+    r_ev = reverse_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=True)
+    f_ev = forward_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=True)
+    
+    X = model_activations - np.mean(model_activations, axis=0)
+    pca = PCA(n_components=50)
+    pca.fit(X)
+    eigenvalues = pca.explained_variance_
+    d_eff = (np.sum(eigenvalues) ** 2) / np.sum(eigenvalues ** 2)
+
+    plt.figure(figsize=(8, 5))
+    plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True)
+    plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True)
+    plt.title(f"Histogram of Reverse EV | alpha: {args.alpha:.2f} | spectral loss coefficient: {args.spectral_loss_coeff:.2f} | forward EV: {args.F_EV:.2f} | reverse EV: {args.R_EV:.2f} | tag: {args.tag} | ED: {d_eff:.2f}")
+    plt.xlabel("Explained Variance")
+    plt.ylabel("Units")
+    plt.grid(axis="y", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
