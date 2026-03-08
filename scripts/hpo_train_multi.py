@@ -2,6 +2,7 @@ import optuna
 from scripts.train_simclr import main, parse_args
 import argparse
 from types import SimpleNamespace
+import numpy as np
 
 
 
@@ -15,10 +16,13 @@ ap.add_argument("--random_sampler", action="store_true")
 
 args = parse_args(ap=ap)
 
-if args.grid_search:
-    search_space = {"tau": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
-                    "spectral_loss_coeff": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
-                    "target_alpha": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]}
+if args.random_sampler:
+    tau_values = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+    spectral_loss_coeffs = np.arange(0.0, 2.05, 0.05).tolist()
+    target_alpha = np.arange(0.0, 2.05, 0.05).tolist()
+    search_space = {"tau": tau_values,
+                    "spectral_loss_coeff": spectral_loss_coeffs,
+                    "target_alpha": target_alpha}
 
     study = optuna.create_study(
         storage='sqlite:///{}'.format(args.optuna_db),
