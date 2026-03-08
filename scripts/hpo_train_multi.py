@@ -20,16 +20,16 @@ if args.random_sampler:
     tau_values = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
     spectral_loss_coeffs = np.arange(0.0, 2.05, 0.05).tolist()
     target_alpha = np.arange(0.0, 2.05, 0.05).tolist()
-    search_space = {"tau": tau_values,
-                    "spectral_loss_coeff": spectral_loss_coeffs,
-                    "target_alpha": target_alpha}
+    # search_space = {"tau": tau_values,
+    #                 "spectral_loss_coeff": spectral_loss_coeffs,
+    #                 "target_alpha": target_alpha}
 
     study = optuna.create_study(
         storage='sqlite:///{}'.format(args.optuna_db),
         study_name=args.optuna_study_name,
         load_if_exists=True,
         directions=['maximize', 'maximize'],
-        sampler=optuna.samplers.RandomSampler(search_space)
+        sampler=optuna.samplers.RandomSampler()
     )
 else:
         study = optuna.create_study(
@@ -43,14 +43,14 @@ def objective(trial):
     # spectral_loss_warmup_epochs = trial.suggest_int("spectral_loss_warmup_epochs", 0, 20, step=5)
     if args.tune_temperature:
         if args.random_sampler:
-            args.tau = trial.suggest_categorical("tau", search_space["tau"])
+            args.tau = trial.suggest_categorical("tau", tau_values)
         else:
             args.tau = trial.suggest_float("tau", 0.05, 0.5, step=0.05)
         args.tag = "tuning_temperature"
         print(f"tau: {args.tau}")
     if args.tune_spectral_loss_coeff:
         if args.random_sampler:
-            args.spectral_loss_coeff = trial.suggest_categorical("spectral_loss_coeff", search_space["spectral_loss_coeff"])
+            args.spectral_loss_coeff = trial.suggest_categorical("spectral_loss_coeff", spectral_loss_coeffs)
         else:
             args.spectral_loss_coeff = trial.suggest_float("spectral_loss_coeff", 0.0, 2.0, step=0.05)
         args.tag = "tuning_spectral_loss_coeff"
@@ -59,7 +59,7 @@ def objective(trial):
         assert args.skip_alpha == False, "Cannot tune target_alpha if skip_alpha is True"
         assert args.spectral_loss_coeff != 0.0, "Cannot tune target_alpha if spectral_loss_coeff is 0.0"
         if args.random_sampler:
-            args.target_alpha = trial.suggest_categorical("target_alpha", search_space["target_alpha"])
+            args.target_alpha = trial.suggest_categorical("target_alpha", target_alpha)
         else:
             args.target_alpha = trial.suggest_float("target_alpha", 0.0, 2.0, step=0.05)
         args.tag = "tuning_alpha"
