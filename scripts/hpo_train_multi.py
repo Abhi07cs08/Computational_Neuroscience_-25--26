@@ -17,7 +17,7 @@ ap.add_argument("--random_sampler", action="store_true")
 args = parse_args(ap=ap)
 
 if args.random_sampler:
-    tau_values = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+    tau_values = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     spectral_loss_coeffs = np.arange(0.0, 2.05, 0.05).tolist()
     target_alpha = np.arange(0.0, 2.05, 0.05).tolist()
     # search_space = {"tau": tau_values,
@@ -45,7 +45,7 @@ def objective(trial):
         if args.random_sampler:
             args.tau = trial.suggest_categorical("tau_cat", tau_values)
         else:
-            args.tau = trial.suggest_float("tau", 0.05, 0.5, step=0.05)
+            args.tau = trial.suggest_float("tau", 0.05, 1.0, step=0.05)
         args.tag = "tuning_temperature"
         print(f"tau: {args.tau}")
     if args.tune_spectral_loss_coeff:
