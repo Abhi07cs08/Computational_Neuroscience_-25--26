@@ -53,19 +53,20 @@ else:
 
 def objective(trial):
     # spectral_loss_warmup_epochs = trial.suggest_int("spectral_loss_warmup_epochs", 0, 20, step=5)
+    args.tag = ""
     if args.tune_temperature:
         if args.random_sampler:
             args.tau = trial.suggest_categorical(f"tau_cat_{args.tau_min}_{args.tau_max}_{args.tau_step}", tau_values)
         else:
             args.tau = trial.suggest_float(f"tau_{args.tau_min}_{args.tau_max}_{args.tau_step}", args.tau_min, args.tau_max, step=args.tau_step)
-        args.tag = "tuning_temperature"
+        args.tag += "_tuning_temperature"
         print(f"tau: {args.tau}")
     if args.tune_spectral_loss_coeff:
         if args.random_sampler:
             args.spectral_loss_coeff = trial.suggest_categorical(f"spectral_loss_coeff_cat_{args.spectral_loss_coeff_min}_{args.spectral_loss_coeff_max}_{args.spectral_loss_coeff_step}", spectral_loss_coeffs)
         else:
             args.spectral_loss_coeff = trial.suggest_float(f"spectral_loss_coeff_{args.spectral_loss_coeff_min}_{args.spectral_loss_coeff_max}_{args.spectral_loss_coeff_step}", args.spectral_loss_coeff_min, args.spectral_loss_coeff_max, step=args.spectral_loss_coeff_step)
-        args.tag = "tuning_spectral_loss_coeff"
+        args.tag += "_tuning_spectral_loss_coeff"
         print(f"spectral_loss_coeff: {args.spectral_loss_coeff}")
     if args.tune_target_alpha:
         assert args.skip_alpha == False, "Cannot tune target_alpha if skip_alpha is True"
@@ -74,7 +75,7 @@ def objective(trial):
             args.target_alpha = trial.suggest_categorical(f"target_alpha_cat_{args.target_alpha_min}_{args.target_alpha_max}_{args.target_alpha_step}", target_alpha)
         else:
             args.target_alpha = trial.suggest_float(f"target_alpha_{args.target_alpha_min}_{args.target_alpha_max}_{args.target_alpha_step}", args.target_alpha_min, args.target_alpha_max, step=args.target_alpha_step)
-        args.tag = "tuning_alpha"
+        args.tag += "_tuning_target_alpha"
         print(f"target_alpha: {args.target_alpha}")
     
     # kwargs = {"imagenet_root": args.imagenet_root, "epochs": args.epochs, "batch_size": args.batch_size,
