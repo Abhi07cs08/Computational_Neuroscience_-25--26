@@ -27,6 +27,17 @@ def extract_model_activations_from_cache(
     model = model.to(device)
     model.eval()
     
+    try:
+        cache_path = cache_dir / f"model_activations_{layer_name}.pkl"
+        if cache_path.exists():
+            with open(cache_path, "rb") as f:
+                cached = pickle.load(f)
+            cached_model = cached.get("model")
+            if cached_model is not None and cached_model == model.state_dict():
+                return cached["activations"], stimulus_ids
+    except Exception as e:
+        print(f"Warning: Failed to load cache due to {e}. Recomputing activations.")
+
     activations = {}
     def hook_fn(name):
         def hook(module, input, output):
@@ -80,5 +91,15 @@ def extract_model_activations_from_cache(
     
     # Combine all features
     model_activations = np.vstack(all_features).astype(np.float32)
+
+
+    #####################
+    with open(cache_path, "wb") as f:
+        pickle.dump({
+            "model": model.state_dict(),
+            "activations": model_activations
+        }, f)
+    ####################
+
     
     return model_activations, stimulus_ids
