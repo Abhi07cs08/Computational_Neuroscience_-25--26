@@ -7,6 +7,24 @@ from PIL import Image
 from torchvision.transforms import Compose, ToTensor, Normalize
 import pickle
 
+
+def _state_dicts_equal(state_a, state_b):
+    if state_a is None or state_b is None:
+        return False
+    if state_a.keys() != state_b.keys():
+        return False
+
+    for key in state_a.keys():
+        val_a = state_a[key]
+        val_b = state_b[key]
+        if torch.is_tensor(val_a) and torch.is_tensor(val_b):
+            if not torch.equal(val_a.detach().cpu(), val_b.detach().cpu()):
+                return False
+        else:
+            if val_a != val_b:
+                return False
+    return True
+
 def extract_model_activations_from_cache(
     model, 
     cache_dir="./majajhong_cache",
@@ -33,7 +51,7 @@ def extract_model_activations_from_cache(
             with open(cache_path, "rb") as f:
                 cached = pickle.load(f)
             cached_model = cached.get("model")
-            if cached_model is not None and cached_model == model.state_dict():
+            if _state_dicts_equal(cached_model, model.state_dict()):
                 return cached["activations"], stimulus_ids
     except Exception as e:
         print(f"Warning: Failed to load cache due to {e}. Recomputing activations.")
