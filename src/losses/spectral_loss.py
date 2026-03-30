@@ -31,9 +31,9 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     return loss_value if device is None else loss_value.to(device), alpha
 
 def just_alpha(activation, device=None, n_components=40, bounds=(6, 30), eps=1e-12):
-    print(f"Activation shape: {activation.shape}")
+    # print(f"Activation shape: {activation.shape}")
     X = activation.view(activation.size(0), -1)
-    print(f"Activation shape after view: {X.shape}")
+    # print(f"Activation shape after view: {X.shape}")
     X = X - X.mean(axis=0)
     B, N = X.shape
     q=min(n_components, B, N)
@@ -107,12 +107,8 @@ def just_alpha_brainscore_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alph
         )
     model_activations = torch.tensor(model_activations) if not isinstance(model_activations, torch.Tensor) else model_activations
     alphas = []
-
-    for acts in model_activations:
-        a = just_alpha(acts.to(device), device=device)
-        alphas.append(float(a.detach().float().cpu().item()))
-    avg_alpha = float(np.mean(alphas))
-    return avg_alpha
+    a = just_alpha(model_activations.to(device), device=device)
+    return a.item()
     
 
         
