@@ -3,6 +3,8 @@ import torch
 import numpy as np
 from src.models.simclr_model import SimCLR
 from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weights, extract_ckpt_args
+from src.utils.model_activations import ModelActivations
+
 
 def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(6, 30), eps=1e-12):
     X = activation.view(activation.size(0), -1)
