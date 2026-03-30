@@ -6,20 +6,10 @@ from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weig
 from src.utils.model_activations import ModelActivations
 
 
-def _ensure_tensor_activation(activation, device=None):
-    if isinstance(activation, torch.Tensor):
-        return activation if device is None else activation.to(device)
-    if isinstance(activation, np.ndarray):
-        tensor = torch.from_numpy(activation)
-        return tensor if device is None else tensor.to(device)
-    raise TypeError(f"Unsupported activation type: {type(activation)}")
-
-
 def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(6, 30), eps=1e-12):
-    activation = _ensure_tensor_activation(activation, device=device)
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
-    X = X - X.mean(dim=0)
+    X = X - X.mean(axis=0)
     B, N = X.shape
     q=min(n_components, B, N)
     with torch.amp.autocast(enabled=False, device_type=device):
@@ -41,9 +31,10 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     return loss_value if device is None else loss_value.to(device), alpha
 
 def just_alpha(activation, device=None, n_components=40, bounds=(6, 30), eps=1e-12):
-    activation = _ensure_tensor_activation(activation, device=device)
+    print(f"Activation shape: {activation.shape}")
     X = activation.view(activation.size(0), -1)
-    X = X - X.mean(dim=0)
+    print(f"Activation shape after view: {X.shape}")
+    X = X - X.mean(axis=0)
     B, N = X.shape
     q=min(n_components, B, N)
     U, S, V = torch.pca_lowrank(X, q=q)
