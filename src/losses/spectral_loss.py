@@ -1,5 +1,7 @@
+from src.latest_neural_data.model_acts import extract_model_activations_from_cache
 import torch
 import numpy as np
+from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weights, extract_ckpt_args
 
 def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(6, 30), eps=1e-12):
     X = activation.view(activation.size(0), -1)
@@ -44,6 +46,69 @@ def just_alpha(activation, device=None, n_components=40, bounds=(6, 30), eps=1e-
     slope = (y * x).mean(dim=-1) / (x.pow(2).mean() + eps)
     alpha = -slope
     return alpha if device is None else alpha.to(device)
+
+
+def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
+    base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
+    num_classes = len(base_ds.classes)
+    model = SimCLR()
+    state_dict = extract_model_weights(ckpt_path)
+    model.load_state_dict(state_dict)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:        device = "cpu"
+    model = model.to(device)
+    for key, value in alpha_kwargs.items():
+        setattr(args, key, value)
+
+    activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
+    activationclass.register_hooks()
+    alphas = []
+    with torch.no_grad():
+        for batch in eval_tr_dl:
+            inputs = batch[0].to(device)
+            _ = model(inputs)
+            a = just_alpha(activationclass.activations[args.neural_ev_layer], device=device)
+            alphas.append(float(a.detach().float().cpu().item()))
+    avg_alpha = float(np.mean(alphas))
+    return avg_alpha
+
+def just_alpha_brainscore_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
+    base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
+    num_classes = len(base_ds.classes)
+    model = SimCLR()
+    state_dict = extract_model_weights(ckpt_path)
+    model.load_state_dict(state_dict)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:        device = "cpu"
+    model = model.to(device)
+    for key, value in alpha_kwargs.items():
+        setattr(args, key, value)
+
+    model_activations, stimulus_ids = extract_model_activations_from_cache(
+            model=model,
+            cache_dir=args.neural_data_dir,
+            layer_name=args.neural_ev_layer,
+            batch_size=32
+        )
+    alphas = []
+    for acts in model_activations:
+        a = just_alpha(acts.to(device), device=device)
+        alphas.append(float(a.detach().float().cpu().item()))
+    avg_alpha = float(np.mean(alphas))
+    return avg_alpha
+    
+
+        
 
 if __name__ == "__main__":
     from src.models.simclr_model import SimCLR
