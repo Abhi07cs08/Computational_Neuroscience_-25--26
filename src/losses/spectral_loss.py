@@ -101,7 +101,7 @@ def just_alpha_brainscore_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alph
             model=model,
             cache_dir=args.neural_data_dir,
             layer_name=args.neural_ev_layer,
-            batch_size=32
+            batch_size=args.batch_size
         )
     model_activations = torch.tensor(model_activations) if not isinstance(model_activations, torch.Tensor) else model_activations
     alphas = []
