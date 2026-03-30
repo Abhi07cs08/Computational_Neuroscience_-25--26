@@ -103,7 +103,9 @@ def just_alpha_brainscore_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alph
             layer_name=args.neural_ev_layer,
             batch_size=32
         )
+    model_activations = torch.tensor(model_activations) if not isinstance(model_activations, torch.Tensor) else model_activations
     alphas = []
+
     for acts in model_activations:
         a = just_alpha(acts.to(device), device=device)
         alphas.append(float(a.detach().float().cpu().item()))
