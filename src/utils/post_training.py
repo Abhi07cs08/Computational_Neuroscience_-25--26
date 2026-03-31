@@ -95,6 +95,57 @@ def df_from_root_dir(root_dir):
     df = df_from_model_paths(model_paths)
     return df
 
+def extract_model_brainscore_acts_with_neural(ckpt_path, stimulus_dir=None):
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+    model = SimCLR()
+    state_dict = extract_model_weights(ckpt_path)
+    model.load_state_dict(state_dict)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:        device = "cpu"
+    model = model.to(device)
+
+    if stimulus_dir is None:
+        stimulus_dir = args.neural_data_dir
+
+
+    model_activations, _, = extract_model_activations_from_cache(
+            model=model,
+            cache_dir=stimulus_dir,
+            layer_name=args.neural_ev_layer,
+            batch_size=args.batch_size,
+        )
+    return model_activations
+
+def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+    model = SimCLR()
+    state_dict = extract_model_weights(ckpt_path)
+    model.load_state_dict(state_dict)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:        device = "cpu"
+    model = model.to(device)
+
+    if neural_data_dir is None:
+        neural_data_dir = args.neural_data_dir
+
+
+    model_activations, _, neural_activations = extract_model_activations_from_cache(
+            model=model,
+            cache_dir=neural_data_dir,
+            layer_name=args.neural_ev_layer,
+            batch_size=args.batch_size,
+            return_neural_activations=True
+        )
+    return model_activations, neural_activations
+
+
+
 def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
     bins_num = 50
     bins = np.linspace(0, 100, bins_num)

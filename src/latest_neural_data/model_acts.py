@@ -30,7 +30,8 @@ def extract_model_activations_from_cache(
     cache_dir="./majajhong_cache",
     layer_name=None,
     batch_size=32,
-    device=None
+    device=None,
+    return_neural_activations=False
 ):
     
     cache_dir = Path(cache_dir)
@@ -118,6 +119,8 @@ def extract_model_activations_from_cache(
             "activations": model_activations
         }, f)
     ####################
-
-    
-    return model_activations, stimulus_ids
+    if return_neural_activations:
+        neural_activations = np.load(cache_dir / "neural_activations.npy")
+        return model_activations, stimulus_ids, neural_activations
+    else:
+        return model_activations, stimulus_ids
