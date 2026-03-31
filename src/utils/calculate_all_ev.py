@@ -19,7 +19,7 @@ import numpy as np
 
 def fr_ev(ckpt_path, folder=None):
     # model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir="src/latest_neural_data/majajhong_cache" )
-    model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path)
+    model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir="src/latest_neural_data/majajhong_cache/")
 
     if folder is None:
         folder = ckpt_path.split("/")[:-1]
