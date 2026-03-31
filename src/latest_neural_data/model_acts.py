@@ -53,6 +53,9 @@ def extract_model_activations_from_cache(
                 cached = pickle.load(f)
             cached_model = cached.get("model")
             if _state_dicts_equal(cached_model, model.state_dict()):
+                if return_neural_activations:
+                    neural_activations = np.load(cache_dir / "neural_activations.npy")
+                    return cached["activations"], stimulus_ids, neural_activations
                 return cached["activations"], stimulus_ids
     except Exception as e:
         print(f"Warning: Failed to load cache due to {e}. Recomputing activations.")
@@ -119,6 +122,7 @@ def extract_model_activations_from_cache(
             "activations": model_activations
         }, f)
     ####################
+    print(return_neural_activations)
     if return_neural_activations:
         neural_activations = np.load(cache_dir / "neural_activations.npy")
         return model_activations, stimulus_ids, neural_activations

@@ -95,7 +95,7 @@ def df_from_root_dir(root_dir):
     df = df_from_model_paths(model_paths)
     return df
 
-def extract_model_brainscore_acts_with_neural(ckpt_path, stimulus_dir=None):
+def extract_model_brainscore_acts(ckpt_path, stimulus_dir=None):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     model = SimCLR()
     state_dict = extract_model_weights(ckpt_path)
