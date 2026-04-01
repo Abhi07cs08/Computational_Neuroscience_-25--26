@@ -67,6 +67,14 @@ def extract_val_dl_from_ckpt(ckpt_path, kwargs={}):
         )
     return eval_tr_dl, eval_va_dl
 
+def to_float(str):
+    try:
+        flt = float(str)
+    except:
+        flt = 0
+    return flt
+
+to_flt = np.vectorize(to_float)
 
 def extract_model_weights(ckpt_path):
     ckpt = torch.load(ckpt_path, weights_only=False)
