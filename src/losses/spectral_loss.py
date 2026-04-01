@@ -23,7 +23,8 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     y = torch.log(eigvals[min_idx:max_idx] + eps)
     x = torch.log(idx + 0.0)
 
-    x = (x - x.mean()) / (x.std() + eps)
+    # x = (x - x.mean()) / (x.std() + eps)
+    x= x - x.mean()
     y = y - y.mean(dim=-1, keepdim=True)
     slope = (y * x).mean(dim=-1) / (x.pow(2).mean() + eps)
     alpha = -slope
@@ -52,6 +53,32 @@ def just_alpha(activation, device=None, n_components=40, bounds=(6, 30), eps=1e-
     alpha = -slope
     return alpha if device is None else alpha.to(device)
 
+def just_alpha_fixed(activation, device=None, n_components=40, bounds=(6, 30)
+    , eps=1e-12):
+    X = activation.view(activation.size(0), -1)
+    # print(f"Activation shape after view: {X.shape}")
+    X = X - X.mean(axis=0)
+    B, N = X.shape
+    q=min(n_components, B, N)
+    U, S, V = torch.pca_lowrank(X, q=q)
+    eigvals = S**2
+    eigvals = eigvals / (torch.sum(eigvals) + eps)
+
+    min_idx = max(1, int(bounds[0]))
+    max_idx = min(int(bounds[1]), eigvals.shape[-1])
+
+    # 1-based PC indices, inclusive range
+    idx = torch.arange(min_idx, max_idx + 1, device=eigvals.device, dtype=eigvals.dtype)
+    y = torch.log(eigvals[min_idx - 1:max_idx] + eps)
+    x = torch.log(idx + 0.0)
+
+    # center only, do not standardize x
+    x = x - x.mean()
+    y = y - y.mean(dim=-1, keepdim=True)
+
+    slope = (y * x).mean(dim=-1) / (x.pow(2).mean() + eps)
+    alpha = -slope
+    return alpha if device is None else alpha.to(device)
 
 def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
     args = extract_ckpt_args(ckpt_path, as_args=True)
