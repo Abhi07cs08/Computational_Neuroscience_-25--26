@@ -19,8 +19,8 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     eigvals = eigvals / (torch.sum(eigvals) + eps)
     min_idx = max(1, int(bounds[0]))
     max_idx = min(int(bounds[1]), eigvals.shape[-1])
-    idx = torch.arange(min_idx, max_idx, device=eigvals.device, dtype=eigvals.dtype)
-    y = torch.log(eigvals[min_idx:max_idx] + eps)
+    idx = torch.arange(min_idx, max_idx+1, device=eigvals.device, dtype=eigvals.dtype)
+    y = torch.log(eigvals[min_idx-1:max_idx] + eps)
     x = torch.log(idx + 0.0)
 
     # x = (x - x.mean()) / (x.std() + eps)
@@ -43,8 +43,8 @@ def just_alpha(activation, device=None, n_components=40, bounds=(6, 30), eps=1e-
     eigvals = eigvals / (torch.sum(eigvals) + eps)
     min_idx = max(1, int(bounds[0]))
     max_idx = min(int(bounds[1]), eigvals.shape[-1])
-    idx = torch.arange(min_idx, max_idx, device=eigvals.device, dtype=eigvals.dtype)
-    y = torch.log(eigvals[min_idx:max_idx] + eps)
+    idx = torch.arange(min_idx, max_idx+1, device=eigvals.device, dtype=eigvals.dtype)
+    y = torch.log(eigvals[min_idx-1:max_idx] + eps)
     x = torch.log(idx + 0.0)
 
     x = (x - x.mean()) / (x.std() + eps)
