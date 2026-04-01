@@ -1,5 +1,7 @@
 import torch
 import torch.nn.functional as F
+from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weights, extract_ckpt_args
+from src.models.simclr_model import SimCLR
 
 @torch.no_grad()
 def knn_top1(encoder, tr_dl, va_dl, device, k=1, temperature=0.07):
@@ -45,3 +47,22 @@ def knn_top1(encoder, tr_dl, va_dl, device, k=1, temperature=0.07):
         total += y.numel()
 
     return 100.0 * correct / max(1, total)
+
+def knn_standalone(ckpt_path, dl_kwargs = {"workers": 3}, k=1, temperature=0.07):
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    print("Using device:", device)
+
+    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
+
+    model_weights = extract_model_weights(ckpt_path)
+    model = SimCLR()
+    model.load_state_dict(model_weights)
+    model.to(device)
+
+    return knn_top1(model.encoder, eval_tr_dl, eval_va_dl, device, k=k, temperature=temperature)

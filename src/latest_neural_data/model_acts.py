@@ -7,12 +7,31 @@ from PIL import Image
 from torchvision.transforms import Compose, ToTensor, Normalize
 import pickle
 
+
+def _state_dicts_equal(state_a, state_b):
+    if state_a is None or state_b is None:
+        return False
+    if state_a.keys() != state_b.keys():
+        return False
+
+    for key in state_a.keys():
+        val_a = state_a[key]
+        val_b = state_b[key]
+        if torch.is_tensor(val_a) and torch.is_tensor(val_b):
+            if not torch.equal(val_a.detach().cpu(), val_b.detach().cpu()):
+                return False
+        else:
+            if val_a != val_b:
+                return False
+    return True
+
 def extract_model_activations_from_cache(
     model, 
     cache_dir="./majajhong_cache",
     layer_name=None,
     batch_size=32,
-    device=None
+    device=None,
+    return_neural_activations=False
 ):
     
     cache_dir = Path(cache_dir)
@@ -27,6 +46,20 @@ def extract_model_activations_from_cache(
     model = model.to(device)
     model.eval()
     
+    try:
+        cache_path = cache_dir / f"model_activations_{layer_name}.pkl"
+        if cache_path.exists():
+            with open(cache_path, "rb") as f:
+                cached = pickle.load(f)
+            cached_model = cached.get("model")
+            if _state_dicts_equal(cached_model, model.state_dict()):
+                if return_neural_activations:
+                    neural_activations = np.load(cache_dir / "neural_activations.npy")
+                    return cached["activations"], stimulus_ids, neural_activations
+                return cached["activations"], stimulus_ids
+    except Exception as e:
+        print(f"Warning: Failed to load cache due to {e}. Recomputing activations.")
+
     activations = {}
     def hook_fn(name):
         def hook(module, input, output):
@@ -80,5 +113,18 @@ def extract_model_activations_from_cache(
     
     # Combine all features
     model_activations = np.vstack(all_features).astype(np.float32)
-    
-    return model_activations, stimulus_ids
+
+
+    #####################
+    with open(cache_path, "wb") as f:
+        pickle.dump({
+            "model": model.state_dict(),
+            "activations": model_activations
+        }, f)
+    ####################
+    print(return_neural_activations)
+    if return_neural_activations:
+        neural_activations = np.load(cache_dir / "neural_activations.npy")
+        return model_activations, stimulus_ids, neural_activations
+    else:
+        return model_activations, stimulus_ids
