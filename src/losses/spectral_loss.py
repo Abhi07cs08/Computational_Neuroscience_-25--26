@@ -6,7 +6,7 @@ from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weig
 from src.utils.model_activations import ModelActivations
 
 
-def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(0, 10), eps=1e-12):
+def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(0, 10), log_base="10", eps=1e-12):
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
     X = X - X.mean(axis=0)
@@ -20,8 +20,12 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     min_idx = max(1, int(bounds[0]))
     max_idx = min(int(bounds[1]), eigvals.shape[-1])
     idx = torch.arange(min_idx, max_idx+1, device=eigvals.device, dtype=eigvals.dtype)
-    y = torch.log(eigvals[min_idx-1:max_idx] + eps)
-    x = torch.log(idx + 0.0)
+    if log_base == "e":
+        log_fn = torch.log
+    elif log_base == "10":
+        log_fn = torch.log10
+    y = log_fn(eigvals[min_idx-1:max_idx] + eps)
+    x = log_fn(idx + 0.0)
 
     # x = (x - x.mean()) / (x.std() + eps)
     x= x - x.mean()
@@ -31,7 +35,7 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     loss_value = (alpha - target_alpha).abs().mean()
     return loss_value if device is None else loss_value.to(device), alpha
 
-def just_alpha(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-12):
+def just_alpha(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-12, log_base="10", return_eigvals=False):
     # print(f"Activation shape: {activation.shape}")
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
@@ -44,17 +48,22 @@ def just_alpha(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-
     min_idx = max(1, int(bounds[0]))
     max_idx = min(int(bounds[1]), eigvals.shape[-1])
     idx = torch.arange(min_idx, max_idx+1, device=eigvals.device, dtype=eigvals.dtype)
-    y = torch.log(eigvals[min_idx-1:max_idx] + eps)
-    x = torch.log(idx + 0.0)
+    if log_base == "e":
+        log_fn = torch.log
+    elif log_base == "10":
+        log_fn = torch.log10
+    y = log_fn(eigvals[min_idx-1:max_idx] + eps)
+    x = log_fn(idx + 0.0)
 
     x = (x - x.mean()) / (x.std() + eps)
     y = y - y.mean(dim=-1, keepdim=True)
     slope = (y * x).mean(dim=-1) / (x.pow(2).mean() + eps)
     alpha = -slope
+    if return_eigvals:
+        return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
-def just_alpha_fixed(activation, device=None, n_components=40, bounds=(0, 10)
-    , eps=1e-12):
+def just_alpha_fixed(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-12, log_base="10",return_eigvals=False):
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
     X = X - X.mean(axis=0)
@@ -69,8 +78,12 @@ def just_alpha_fixed(activation, device=None, n_components=40, bounds=(0, 10)
 
     # 1-based PC indices, inclusive range
     idx = torch.arange(min_idx, max_idx + 1, device=eigvals.device, dtype=eigvals.dtype)
-    y = torch.log(eigvals[min_idx - 1:max_idx] + eps)
-    x = torch.log(idx + 0.0)
+    if log_base == "e":
+        log_fn = torch.log
+    elif log_base == "10":
+        log_fn = torch.log10
+    y = log_fn(eigvals[min_idx - 1:max_idx] + eps)
+    x = log_fn(idx + 0.0)
 
     # center only, do not standardize x
     x = x - x.mean()
@@ -78,6 +91,8 @@ def just_alpha_fixed(activation, device=None, n_components=40, bounds=(0, 10)
 
     slope = (y * x).mean(dim=-1) / (x.pow(2).mean() + eps)
     alpha = -slope
+    if return_eigvals:
+        return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
 def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
@@ -104,7 +119,7 @@ def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kw
         for batch in eval_tr_dl:
             inputs = batch[0].to(device)
             _ = model(inputs)
-            a = just_alpha(activationclass.activations[args.neural_ev_layer], device=device)
+            a = just_alpha_fixed(activationclass.activations[args.neural_ev_layer], device=device)
             alphas.append(float(a.detach().float().cpu().item()))
     avg_alpha = float(np.mean(alphas))
     return avg_alpha
@@ -134,7 +149,7 @@ def just_alpha_brainscore_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alph
         )
     model_activations = torch.tensor(model_activations) if not isinstance(model_activations, torch.Tensor) else model_activations
     alphas = []
-    a = just_alpha(model_activations.to(device), device=device)
+    a = just_alpha_fixed(model_activations.to(device), device=device)
     return a.item()
     
 
