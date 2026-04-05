@@ -6,7 +6,7 @@ from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weig
 from src.utils.model_activations import ModelActivations
 
 
-def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(0, 10), log_base="10", eps=1e-12):
+def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bounds=(5, 15), log_base="10", eps=1e-12):
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
     X = X - X.mean(axis=0)
@@ -35,7 +35,7 @@ def spectral_loss(activation, device=None, n_components=40, target_alpha=1.0, bo
     loss_value = (alpha - target_alpha).abs().mean()
     return loss_value if device is None else loss_value.to(device), alpha
 
-def just_alpha(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-12, log_base="10", return_eigvals=False):
+def just_alpha(activation, device=None, n_components=40, bounds=(5, 15), eps=1e-12, log_base="10", return_eigvals=False):
     # print(f"Activation shape: {activation.shape}")
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
@@ -63,7 +63,7 @@ def just_alpha(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-
         return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
-def just_alpha_fixed(activation, device=None, n_components=40, bounds=(0, 10), eps=1e-12, log_base="10",return_eigvals=False):
+def just_alpha_fixed(activation, device=None, n_components=40, bounds=(5, 15), eps=1e-12, log_base="10",return_eigvals=False):
     X = activation.view(activation.size(0), -1)
     # print(f"Activation shape after view: {X.shape}")
     X = X - X.mean(axis=0)
