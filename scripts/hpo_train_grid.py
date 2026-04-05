@@ -18,7 +18,7 @@ args = parse_args(ap=ap)
     # tau_values = np.arange(args.tau_min, args.tau_max + args.tau_step, args.tau_step).tolist()
     # spectral_loss_coeffs = np.arange(args.spectral_loss_coeff_min, args.spectral_loss_coeff_max + args.spectral_loss_coeff_step, args.spectral_loss_coeff_step).tolist()
     # target_alpha = np.arange(args.target_alpha_min, args.target_alpha_max + args.target_alpha_step, args.target_alpha_step).tolist()
-search_space = {"spectral_loss_coeff": [1.0, 2.0, 3.0, 4.0, 0.5, 1.5, 2.5, 3.5], "target_alpha": [0.5, 1.0, 1.5, 0.75, 1.25, 2.5]}
+search_space = {"spectral_loss_coeff": [0.5, 1.0, 2.0, 3.0,], "target_alpha": [0.5, 0.75, 1.0, 1.25, 1.5, 2.5]}
     # search_space = {"tau": tau_values,
     #                 "spectral_loss_coeff": spectral_loss_coeffs,
     #                 "target_alpha": target_alpha}
@@ -51,7 +51,7 @@ def objective(trial):
     #         args.target_alpha = trial.suggest_float(f"target_alpha_{args.target_alpha_min}_{args.target_alpha_max}_{args.target_alpha_step}", args.target_alpha_min, args.target_alpha_max, step=args.target_alpha_step)
     #     args.tag += "_tuning_target_alpha"
     #     print(f"target_alpha: {args.target_alpha}")
-    args.spectral_loss_coeff = trial.suggest_categorical("spectral_loss_coeff", [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0])
+    args.spectral_loss_coeff = trial.suggest_categorical("spectral_loss_coeff", [0.5, 1.0, 2.0, 3.0,])
     args.target_alpha = trial.suggest_categorical("target_alpha", [0.5, 0.75, 1.0, 1.25, 1.5, 2.5])
 
     # kwargs = {"imagenet_root": args.imagenet_root, "epochs": args.epochs, "batch_size": args.batch_size,
