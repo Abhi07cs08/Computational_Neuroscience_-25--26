@@ -68,7 +68,7 @@ def add_frev_to_csv(csv_path, fev_value, rev_value):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Calculate EV for a given checkpoint.")
-    parser.add_argument("--mega_folder", type=str, required=True, default = "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/", help="Path to the mega folder containing checkpoints.")
+    parser.add_argument("--mega_folder", type=str, default = "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/", help="Path to the mega folder containing checkpoints.")
     parser.add_argument("--neural_data_dir", type=str, default="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/", help="Path to the neural data directory")
     return parser.parse_args()
 
