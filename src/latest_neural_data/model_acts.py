@@ -116,11 +116,14 @@ def extract_model_activations_from_cache(
 
 
     #####################
-    with open(cache_path, "wb") as f:
-        pickle.dump({
-            "model": model.state_dict(),
-            "activations": model_activations
-        }, f)
+    try:
+        with open(cache_path, "wb") as f:
+            pickle.dump({
+                "model": model.state_dict(),
+                "activations": model_activations
+            }, f)
+    except Exception as e:
+        print(f"Warning: Failed to save cache due to {e}.")
     ####################
     print(return_neural_activations)
     if return_neural_activations:
