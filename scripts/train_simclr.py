@@ -334,7 +334,7 @@ def parse_args(ap=None):
 def main(args=None):
     f_ev, r_ev = 0.0, 0.0
 
-    version = "fixed l2/alpha_03042026"
+    version = "fixed alpha_loss_04042026"
 
     if args is None:
         args = parse_args()
