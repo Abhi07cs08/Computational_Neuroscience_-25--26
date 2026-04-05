@@ -23,7 +23,7 @@ export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":
 
 
 OTPUNA_STUDY_NAME=${1-"grid_search_alpha_bands_retry"}
-more_args=${2-""}
+more_args=${2-"--skip_ssl_val"}
 
 OPTUNA_DB=$SCRATCH/${OTPUNA_STUDY_NAME}.db
 
