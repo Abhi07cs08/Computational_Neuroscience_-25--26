@@ -13,13 +13,14 @@ from reverse_pred.monkey_to_model import compute_monkey_to_model
 from reverse_pred.model_to_monkey import compute_model_to_monkey
 from src.utils.post_training import extract_model_brainscore_acts_with_neural
 import numpy as np
+import argparse
 
 
 
 
-def fr_ev(ckpt_path, folder=None):
+def fr_ev(ckpt_path, folder=None, neural_data_dir="src/latest_neural_data/majajhong_cache/"):
     # model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir="src/latest_neural_data/majajhong_cache" )
-    model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir="src/latest_neural_data/majajhong_cache/")
+    model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=neural_data_dir )
 
     if folder is None:
         folder = ckpt_path.split("/")[:-1]
@@ -62,23 +63,34 @@ def add_frev_to_csv(csv_path, fev_value, rev_value):
 
 # scratch_path = Path("/mnt/d/CompNeuroTrials/")
 
-scratch_path = Path("/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/")
-model_paths = []
-for root, dirs, files in os.walk(scratch_path):
-    if os.path.basename(root) == "ckpts":
-        # try:
-            folder = os.path.dirname(root)
-            ckpt_path = os.path.join(root, "simclr/last.pt")
-            csv_path = os.path.join(folder, "logs/simclr_baseline.csv")
-            ev_path = os.path.join(folder, "neural_predictivity")
-            if not os.path.exists(csv_path) or not os.path.exists(ckpt_path):
-                print(f"Missing files in {root}, skipping.")
-                continue
-            if not os.path.exists(ev_path):
-                os.makedirs(ev_path)
-            r_ev_path, f_ev_path = fr_ev(ckpt_path, folder = ev_path)
-            r_ev_mean = calculate_ev_mean(r_ev_path)
-            f_ev_mean = calculate_ev_mean(f_ev_path)
-            add_frev_to_csv(csv_path, f_ev_mean, r_ev_mean)
-        # except Exception as e:
-            print(f"Error processing {root}: {e}")
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Calculate EV for a given checkpoint.")
+    parser.add_argument("--mega_folder", type=str, default = "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/", help="Path to the mega folder containing checkpoints.")
+    parser.add_argument("--neural_data_dir", type=str, default="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/", help="Path to the neural data directory")
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    args = parse_args()
+    scratch_path = Path(args.mega_folder)
+    model_paths = []
+    for root, dirs, files in os.walk(scratch_path):
+        if os.path.basename(root) == "ckpts":
+            try:
+                folder = os.path.dirname(root)
+                ckpt_path = os.path.join(root, "simclr/last.pt")
+                csv_path = os.path.join(folder, "logs/simclr_baseline.csv")
+                ev_path = os.path.join(folder, "neural_predictivity")
+                if not os.path.exists(csv_path) or not os.path.exists(ckpt_path):
+                    print(f"Missing files in {root}, skipping.")
+                    continue
+                if not os.path.exists(ev_path):
+                    os.makedirs(ev_path)
+                r_ev_path, f_ev_path = fr_ev(ckpt_path, folder = ev_path, neural_data_dir=args.neural_data_dir)
+                r_ev_mean = calculate_ev_mean(r_ev_path)
+                f_ev_mean = calculate_ev_mean(f_ev_path)
+                add_frev_to_csv(csv_path, f_ev_mean, r_ev_mean)
+            except Exception as e:
+                print(f"Error processing {root}: {e}")

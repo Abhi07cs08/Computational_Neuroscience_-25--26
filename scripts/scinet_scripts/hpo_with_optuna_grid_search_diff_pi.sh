@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --array 1-25%25
-#SBATCH --job-name=hpo_optuna_grid
+#SBATCH --array 1-30%30
+#SBATCH --job-name=hpo_optuna_grid_pi
 #SBATCH --time 20:00:00
-
+#SBATCH --account=def-blaschow
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --output=optuna_grid_output_%A_%a.txt
@@ -22,7 +22,7 @@ export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":
 
 
 
-OTPUNA_STUDY_NAME=${1-"grid_search_alpha_bands_retry"}
+OTPUNA_STUDY_NAME=${1-"grid_search_alpha_bands"}
 more_args=${2-""}
 
 OPTUNA_DB=$SCRATCH/${OTPUNA_STUDY_NAME}.db
