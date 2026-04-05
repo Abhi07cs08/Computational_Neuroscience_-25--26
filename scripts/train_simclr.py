@@ -24,7 +24,7 @@ from src.datamod.cifar10_ssl import (
 )
 from src.models.simclr_model import SimCLR, SimCLR_Aux, downsizedSimCLR
 from src.losses.simclr import info_nce, debiased_info_nce
-from src.losses.spectral_loss import spectral_loss, just_alpha
+from src.losses.spectral_loss import just_alpha_fixed, spectral_loss, just_alpha
 from src.losses.group_sparsity_loss import aux_loss
 from src.utils.model_activations import ModelActivations
 
@@ -167,7 +167,7 @@ def ssl_val_infonce_and_alpha(
         n += 1
 
         if compute_alpha and activationclass is not None and alpha_layer is not None:
-            a = just_alpha(activationclass.activations[alpha_layer], device=device)
+            a = just_alpha_fixed(activationclass.activations[alpha_layer], device=device)
             alphas.append(float(a.detach().float().cpu().item()))
 
     model.train()
