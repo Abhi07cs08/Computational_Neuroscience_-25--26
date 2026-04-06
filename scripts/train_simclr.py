@@ -24,7 +24,7 @@ from src.datamod.cifar10_ssl import (
 )
 from src.models.simclr_model import SimCLR, SimCLR_Aux, downsizedSimCLR
 from src.losses.simclr import info_nce, debiased_info_nce
-from src.losses.spectral_loss import spectral_loss, just_alpha
+from src.losses.spectral_loss import just_alpha_fixed, spectral_loss, just_alpha
 from src.losses.group_sparsity_loss import aux_loss
 from src.utils.model_activations import ModelActivations
 
@@ -167,7 +167,7 @@ def ssl_val_infonce_and_alpha(
         n += 1
 
         if compute_alpha and activationclass is not None and alpha_layer is not None:
-            a = just_alpha(activationclass.activations[alpha_layer], device=device)
+            a = just_alpha_fixed(activationclass.activations[alpha_layer], device=device)
             alphas.append(float(a.detach().float().cpu().item()))
 
     model.train()
@@ -277,6 +277,7 @@ def parse_args(ap=None):
     ap.add_argument("--skip_neural_ev", action="store_true")
     ap.add_argument("--skip_linear_probe", action="store_true")
     ap.add_argument("--skip_pr", action="store_true")
+    ap.add_argument("--skip_ssl_val", action="store_true")
 
     # evaluation cadnce
     ap.add_argument("--eval_every", type=int, default=10, help="run knn/linear probe/pr every N epochs")
@@ -334,7 +335,7 @@ def parse_args(ap=None):
 def main(args=None):
     f_ev, r_ev = 0.0, 0.0
 
-    version = "fixed l2/alpha_03042026"
+    version = "fixed alpha_loss_04042026"
 
     if args is None:
         args = parse_args()
@@ -702,20 +703,25 @@ def main(args=None):
         train_avg = epoch_loss / max(1, n_steps)
         print(f"--- Epoch {epoch+1} done | avg train loss {train_avg:.4f} ---")
 
+        do_eval = ((not (args.eval_every == 0)) and ((epoch + 1) % args.eval_every == 0)) or (epoch + 1 == args.epochs)
+
         # SSL val loss (proper)
-        ssl_val_avg, val_alpha = ssl_val_infonce_and_alpha(
-            model,
-            ssl_val_dl,
-            tau=args.tau,
-            device=device,
-            activationclass=activationclass,
-            alpha_layer=args.neural_ev_layer,
-            compute_alpha=(not args.skip_alpha),
-            use_debiased=bool(args.use_debiased),
-            teacher=teacher,
-            teacher_feat=args.teacher_feat,
-            gamma=float(args.gamma),
-        )
+        if args.skip_ssl_val and not do_eval:
+            ssl_val_avg, val_alpha = 0.0, 0.0
+        else:
+            ssl_val_avg, val_alpha = ssl_val_infonce_and_alpha(
+                model,
+                ssl_val_dl,
+                tau=args.tau,
+                device=device,
+                activationclass=activationclass,
+                alpha_layer=args.neural_ev_layer,
+                compute_alpha=(not args.skip_alpha),
+                use_debiased=bool(args.use_debiased),
+                teacher=teacher,
+                teacher_feat=args.teacher_feat,
+                gamma=float(args.gamma),
+            )
         val_tag = "Debiased" if bool(args.use_debiased) else "InfoNCE"
         print(f"epoch {epoch+1} | ssl val {val_tag} {ssl_val_avg:.4f} | alpha {val_alpha:.3f}")
         
@@ -731,7 +737,6 @@ def main(args=None):
         # print(f"epoch {epoch+1} | alpha {val_alpha:.3f}")
 
         # kNN + linear probe + PR (cadenced)
-        do_eval = ((not (args.eval_every == 0)) and ((epoch + 1) % args.eval_every == 0)) or (epoch + 1 == args.epochs)
 
         knn_acc = 0.0
         lp_acc = 0.0

@@ -19,4 +19,6 @@ source $HOME/CompNeuro/Computational_Neuroscience_-25--26/.venv/bin/activate
 export PYTHONPATH=$PWD
 export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":$PYTHONPATH
 
-python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/utils/calculate_all_ev.py"
+args=${1-""}
+
+python -u "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/utils/calculate_all_ev.py" $args
