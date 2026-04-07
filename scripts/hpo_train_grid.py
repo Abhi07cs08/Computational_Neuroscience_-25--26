@@ -27,6 +27,7 @@ study = optuna.create_study(
         storage='sqlite:///{}'.format(args.optuna_db),
         study_name=args.optuna_study_name,
         load_if_exists=True,
+        directions=['maximize', 'maximize'],
         sampler=sampler
     )
 

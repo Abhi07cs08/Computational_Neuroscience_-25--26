@@ -152,11 +152,26 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
         )
     return model_activations, neural_activations
 
-
+def plot_ev_graph(r_ev, f_ev, bins_num=50, title="Histogram of Explained Variance"):
+    bins = np.linspace(0, 100, bins_num)
+    r_mean = np.nanmean(r_ev)
+    f_mean = np.nanmean(f_ev)
+    plt.figure(figsize=(8, 5))
+    plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True, label="r_ev")
+    plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True, label="f_ev")
+    plt.axvline(r_mean, color="navy", linestyle="--", linewidth=2, label=f"Reverse EV: {r_mean:.2f}")
+    plt.axvline(f_mean, color="darkgreen", linestyle="--", linewidth=2, label=f"Forward EV: {f_mean:.2f}")
+    plt.title(title)
+    plt.xlabel("Explained Variance")
+    plt.ylabel("Units")
+    plt.grid(axis="y", alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
     bins_num = 50
-    bins = np.linspace(0, 100, bins_num)
+    # bins = np.linspace(0, 100, bins_num)
     neural_activations = np.load(os.path.join(neural_data_folder, "neural_activations.npy"))
     num = len(df.index)
     if isinstance(df, pd.Series):
@@ -190,15 +205,17 @@ def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computation
         eigenvalues = pca.explained_variance_
         d_eff = (np.sum(eigenvalues) ** 2) / np.sum(eigenvalues ** 2)
         
-        plt.figure(figsize=(8, 5))
-        plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True)
-        plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True)
-        plt.title(f"Histogram of Reverse EV | alpha: {data['alpha']:.2f} | spectral loss coefficient: {data['spectral_loss_coeff']:.2f} | forward EV: {data['F_EV']:.2f} | reverse EV: {data['R_EV']:.2f} | tag: {data['tag']} | ED: {d_eff:.2f}")
-        plt.xlabel("Explained Variance")
-        plt.ylabel("Units")
-        plt.grid(axis="y", alpha=0.3)
-        plt.tight_layout()
-        plt.show()
+        plot_ev_graph(r_ev, f_ev, bins_num=bins_num, title=f"Histogram of Explained Variance | alpha: {data['alpha']:.2f} | spectral loss coefficient: {data['spectral_loss_coeff']:.2f} | forward EV: {data['F_EV']:.2f} | reverse EV: {data['R_EV']:.2f} | tag: {data['tag']} | ED: {d_eff:.2f}")
+
+        # plt.figure(figsize=(8, 5))
+        # plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True)
+        # plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True)
+        # plt.title(f"Histogram of Reverse EV | alpha: {data['alpha']:.2f} | spectral loss coefficient: {data['spectral_loss_coeff']:.2f} | forward EV: {data['F_EV']:.2f} | reverse EV: {data['R_EV']:.2f} | tag: {data['tag']} | ED: {d_eff:.2f}")
+        # plt.xlabel("Explained Variance")
+        # plt.ylabel("Units")
+        # plt.grid(axis="y", alpha=0.3)
+        # plt.tight_layout()
+        # plt.show()
 
 def plot_ev_ckpt(ckpt_path, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
     bins_num = 50
@@ -227,12 +244,14 @@ def plot_ev_ckpt(ckpt_path, neural_data_folder="/home/kostouso/CompNeuro/Computa
     eigenvalues = pca.explained_variance_
     d_eff = (np.sum(eigenvalues) ** 2) / np.sum(eigenvalues ** 2)
 
-    plt.figure(figsize=(8, 5))
-    plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True)
-    plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True)
-    plt.title(f"Histogram of Reverse EV | alpha: {args.alpha:.2f} | spectral loss coefficient: {args.spectral_loss_coeff:.2f} | forward EV: {args.F_EV:.2f} | reverse EV: {args.R_EV:.2f} | tag: {args.tag} | ED: {d_eff:.2f}")
-    plt.xlabel("Explained Variance")
-    plt.ylabel("Units")
-    plt.grid(axis="y", alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+    plot_ev_graph(r_ev, f_ev, bins_num=bins_num, title=f"Histogram of Explained Variance | alpha: {getattr(args.alpha, 'nan'):.2f} | spectral loss coefficient: {getattr(args.spectral_loss_coeff, 'nan'):.2f} | forward EV: {getattr(args.F_EV, 'nan'):.2f} | reverse EV: {getattr(args.R_EV, 'nan'):.2f} | tag: {getattr(args.tag, 'nan')} | ED: {d_eff:.2f}")
+
+    # plt.figure(figsize=(8, 5))
+    # plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True)
+    # plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True)
+    # plt.title(f"Histogram of Reverse EV | alpha: {args.alpha:.2f} | spectral loss coefficient: {args.spectral_loss_coeff:.2f} | forward EV: {args.F_EV:.2f} | reverse EV: {args.R_EV:.2f} | tag: {args.tag} | ED: {d_eff:.2f}")
+    # plt.xlabel("Explained Variance")
+    # plt.ylabel("Units")
+    # plt.grid(axis="y", alpha=0.3)
+    # plt.tight_layout()
+    # plt.show()
