@@ -169,8 +169,7 @@ def plot_ev_graph(r_ev, f_ev, bins_num=50, title="Histogram of Explained Varianc
     plt.tight_layout()
     plt.show()
 
-def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
-    bins_num = 50
+def plot_ev_from_df(df, unrevamped=True, bins_num=50, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
     # bins = np.linspace(0, 100, bins_num)
     neural_activations = np.load(os.path.join(neural_data_folder, "neural_activations.npy"))
     num = len(df.index)
@@ -196,8 +195,8 @@ def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computation
             batch_size=32
         )
         print(model_activations.shape)
-        r_ev = reverse_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=False)
-        f_ev = forward_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=False)
+        r_ev = reverse_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=unrevamped)
+        f_ev = forward_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=unrevamped)
 
         X = model_activations - np.mean(model_activations, axis=0)
         pca = PCA(n_components=50)
@@ -217,7 +216,7 @@ def plot_ev_from_df(df, neural_data_folder="/home/kostouso/CompNeuro/Computation
         # plt.tight_layout()
         # plt.show()
 
-def plot_ev_ckpt(ckpt_path, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
+def plot_ev_ckpt(ckpt_path, bins_num=50, unrevamped=True, neural_data_folder="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/"):
     bins_num = 50
     bins = np.linspace(0, 100, bins_num)
     neural_activations = np.load(os.path.join(neural_data_folder, "neural_activations.npy"))
@@ -235,9 +234,9 @@ def plot_ev_ckpt(ckpt_path, neural_data_folder="/home/kostouso/CompNeuro/Computa
         layer_name=layer,
         batch_size=32
     )
-    r_ev = reverse_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=True)
-    f_ev = forward_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=True)
-    
+    r_ev = reverse_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=unrevamped)
+    f_ev = forward_ev(model_activations, neural_activations, full_ev_vector=True, unrevamped=unrevamped)
+
     X = model_activations - np.mean(model_activations, axis=0)
     pca = PCA(n_components=50)
     pca.fit(X)
