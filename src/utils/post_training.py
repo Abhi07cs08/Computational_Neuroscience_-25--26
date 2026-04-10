@@ -186,8 +186,9 @@ def plot_ev_from_df(df, unrevamped=True, bins_num=50, neural_data_folder="/home/
             continue
         model = SimCLR()
         model.load_state_dict(model_weights)
-        layer = 'encoder.layer4.1'
-    
+        # layer = 'encoder.layer4.1'
+        layer = data.get("neural_ev_layer", "encoder.layer4.1")
+        print(f"extracting model activations from {layer}")
         model_activations, stimulus_ids = extract_model_activations_from_cache(
             model=model,
             cache_dir=neural_data_folder,#"REVERSE_PRED_FINAL/majajhong_cache"
@@ -224,9 +225,11 @@ def plot_ev_ckpt(ckpt_path, bins_num=50, unrevamped=True, neural_data_folder="/h
     model_weights = extract_model_weights(ckpt_path)
     model = SimCLR()
     model.load_state_dict(model_weights)
-    layer = 'encoder.layer4.1'
+    # layer = 'encoder.layer4.1'
 
     args = extract_ckpt_args(ckpt_path, as_args=True)
+    layer = getattr(args, "neural_ev_layer", "encoder.layer4.1")
+    print(f"extracting model activations from {layer}")
 
     model_activations, stimulus_ids = extract_model_activations_from_cache(
         model=model,
