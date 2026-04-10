@@ -187,7 +187,7 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
             model=model,
             cache_dir=neural_data_dir,
             layer_name=args.neural_ev_layer,
-            batch_size=args.batch_size,
+            batch_size=32,
             return_neural_activations=True
         )
     return model_activations, neural_activations
