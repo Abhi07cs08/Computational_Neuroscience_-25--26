@@ -20,6 +20,7 @@ from src.datamod.imagenet_ssl import (
 def fetch_csv_path_from_ckpt_path(ckpt_path):
     parent_folder = os.path.dirname(ckpt_path)
     parent_folder = os.path.dirname(parent_folder)
+    parent_folder = os.path.dirname(parent_folder)
     csv_path = os.path.join(parent_folder, "logs/simclr_baseline.csv")
     if os.path.exists(csv_path):
         return csv_path
@@ -37,6 +38,7 @@ def fetch_full_args_from_ckpt_path(ckpt_path):
 
 def fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=False):
     parent_folder = os.path.dirname(ckpt_path)
+    parent_folder = os.path.dirname(parent_folder)
     parent_folder = os.path.dirname(parent_folder)
     rev_path = os.path.join(parent_folder, "logs/neural_predictivity/reverse_ev.npy")
     fev_path = os.path.join(parent_folder, "logs/neural_predictivity/forward_ev.npy")
