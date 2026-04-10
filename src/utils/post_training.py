@@ -196,7 +196,7 @@ def fr_ev_new(ckpt_path):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
     neural_data_dir = args["neural_data_dir"]
     model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=neural_data_dir)
-    r_ev_path, f_ev_path= fetch_fr_ev_path_from_ckpt_path(ckpt_path)
+    r_ev_path, f_ev_path= fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=True)
     parent_rev = os.path.dirname(r_ev_path)
     parent_fev = os.path.dirname(f_ev_path)
     compute_monkey_to_model(
