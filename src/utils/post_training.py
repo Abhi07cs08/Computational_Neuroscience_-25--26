@@ -192,7 +192,7 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
         )
     return model_activations, neural_activations
 
-def fr_ev_new(ckpt_path):
+def fr_ev_new(ckpt_path, old_style=False):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
     neural_data_dir = args["neural_data_dir"]
     model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=neural_data_dir)
@@ -200,22 +200,30 @@ def fr_ev_new(ckpt_path):
     r_ev_path, f_ev_path= fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=True)
     parent_rev = os.path.dirname(r_ev_path)
     parent_fev = os.path.dirname(f_ev_path)
-    compute_monkey_to_model(
-        model_features=model_acts,
-        rates =neural_acts,
-        out_dir=parent_rev,
-        max_n=None,
-        reps=20,
-        out_name=os.path.basename(r_ev_path),)
-    print(f"Saved reverse EV to {os.path.join(parent_rev, os.path.basename(r_ev_path))}")
-    compute_model_to_monkey(
-        rates=neural_acts,
-        model_features=model_acts,
-        out_dir=parent_fev,
-        max_n=None,
-        reps=20,
-        out_name=os.path.basename(f_ev_path),)
-    print(f"Saved forward EV to {os.path.join(parent_fev, os.path.basename(f_ev_path))}")
+    if old_style:
+        r_ev = reverse_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
+        np.save(r_ev_path, r_ev)
+        print(f"Saved reverse EV to {r_ev_path}")
+        f_ev = forward_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
+        np.save(f_ev_path, f_ev)
+        print(f"Saved forward EV to {f_ev_path}")
+    else:
+        compute_monkey_to_model(
+            model_features=model_acts,
+            rates =neural_acts,
+            out_dir=parent_rev,
+            max_n=None,
+            reps=20,
+            out_name=os.path.basename(r_ev_path),)
+        print(f"Saved reverse EV to {os.path.join(parent_rev, os.path.basename(r_ev_path))}")
+        compute_model_to_monkey(
+            rates=neural_acts,
+            model_features=model_acts,
+            out_dir=parent_fev,
+            max_n=None,
+            reps=20,
+            out_name=os.path.basename(f_ev_path),)
+        print(f"Saved forward EV to {os.path.join(parent_fev, os.path.basename(f_ev_path))}")
     r_ev = np.load(r_ev_path)
     f_ev = np.load(f_ev_path)
     return r_ev, f_ev
