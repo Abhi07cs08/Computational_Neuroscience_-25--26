@@ -1,9 +1,15 @@
 # regresson_metrics.py
 
+import os
+
 import numpy as np
 from sklearn import linear_model
 from scipy import stats
 import numpy as np
+from reverse_pred.model_to_monkey import compute_model_to_monkey
+from reverse_pred.monkey_to_model import compute_monkey_to_model
+from src.utils.post_training import extract_model_brainscore_acts_with_neural, fetch_fr_ev_path_from_ckpt_path
+
 
 def ridge_regress(X_train, Y_train, X_test, model=None, monkey=None, fold=None):
     clf = linear_model.Ridge(alpha=0.1)
@@ -259,8 +265,8 @@ def get_all_stats(p, neurons_predicted, neurons_predictor, ncomp, unrevamped=Fal
     return ev
 
 
-def reverse_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False):
-    responses = np.nanmean(neural_activations, axis=2)  
+def reverse_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False, lib=False):
+    responses = np.nanmean(neural_activations, axis=2)       
     prediction = get_all_preds(model_activations, responses, ncomp=20)
     ev = get_all_stats(prediction, model_activations, neural_activations, ncomp=20, unrevamped=unrevamped)
     if full_ev_vector:
@@ -268,7 +274,7 @@ def reverse_ev(model_activations, neural_activations, full_ev_vector = False, un
     else:
         return np.nanmean(ev)
 
-def forward_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False):
+def forward_ev(model_activations, neural_activations, full_ev_vector = False, unrevamped=False, lib=False):
     shc = get_splithalf_corr(neural_activations, ax=2)["split_half_corr"]
     mask = shc > 0.7
     selected_rates = neural_activations[:, mask]
@@ -279,3 +285,5 @@ def forward_ev(model_activations, neural_activations, full_ev_vector = False, un
         return ev
     else:
         return np.nanmean(ev)
+
+
