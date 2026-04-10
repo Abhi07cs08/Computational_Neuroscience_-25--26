@@ -1,15 +1,10 @@
 # regresson_metrics.py
 
 import os
-
 import numpy as np
 from sklearn import linear_model
 from scipy import stats
 import numpy as np
-from reverse_pred.model_to_monkey import compute_model_to_monkey
-from reverse_pred.monkey_to_model import compute_monkey_to_model
-from src.utils.post_training import extract_model_brainscore_acts_with_neural, fetch_fr_ev_path_from_ckpt_path
-
 
 def ridge_regress(X_train, Y_train, X_test, model=None, monkey=None, fold=None):
     clf = linear_model.Ridge(alpha=0.1)
