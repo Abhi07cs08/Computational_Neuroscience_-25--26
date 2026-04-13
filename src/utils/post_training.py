@@ -200,6 +200,8 @@ def fr_ev_new(ckpt_path, old_style=False):
     r_ev_path, f_ev_path= fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=True)
     parent_rev = os.path.dirname(r_ev_path)
     parent_fev = os.path.dirname(f_ev_path)
+    os.makedirs(parent_rev, exist_ok=True)
+    os.makedirs(parent_fev, exist_ok=True)
     if old_style:
         r_ev = reverse_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
         np.save(r_ev_path, r_ev)
