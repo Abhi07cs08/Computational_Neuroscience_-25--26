@@ -81,14 +81,15 @@ if __name__ == "__main__":
         ckpt_path = row["ckpt_path"]
         try:
             if row["version"] != "fixed alpha_loss_04042026":
-                print(f"Skipping {ckpt_path} due to older version.")
+                print(f"Skipping {ckpt_path} due to version issues.")
                 continue
             r_ev_path, f_ev_path = fetch_fr_ev_path_from_ckpt_path(ckpt_path)
-            print(f"Found existing EV paths for {ckpt_path}: {r_ev_path}, {f_ev_path}")
+            print(f"Found existing Neural EV paths for {ckpt_path}: {r_ev_path}, {f_ev_path}")
         except Exception as e:
-            print(f"Error found for {ckpt_path}: {e}, attempting to recompute EV.")
+            print(f"Error found for {ckpt_path}: {e}, attempting to recompute Neural EV.")
             try:
                 fr_ev_new(ckpt_path, old_style=True)
+                print(f"Successfully recomputed Neural EV for {ckpt_path}.")
             except Exception as e:
                 print(f"Error processing {ckpt_path}: {e}")
 
