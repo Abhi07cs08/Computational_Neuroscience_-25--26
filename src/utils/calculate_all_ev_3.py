@@ -85,7 +85,8 @@ if __name__ == "__main__":
                 continue
             r_ev_path, f_ev_path = fetch_fr_ev_path_from_ckpt_path(ckpt_path)
             print(f"Found existing EV paths for {ckpt_path}: {r_ev_path}, {f_ev_path}")
-        except FileNotFoundError:
+        except Exception as e:
+            print(f"Error found for {ckpt_path}: {e}, attempting to recompute EV.")
             try:
                 fr_ev_new(ckpt_path, old_style=True)
             except Exception as e:
