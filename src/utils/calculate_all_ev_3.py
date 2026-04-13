@@ -11,7 +11,7 @@ import pandas as pd
 from src.losses.spectral_loss import just_alpha_imgnet_standalone, just_alpha_brainscore_standalone
 from reverse_pred.monkey_to_model import compute_monkey_to_model
 from reverse_pred.model_to_monkey import compute_model_to_monkey
-from src.utils.post_training import extract_model_brainscore_acts_with_neural, fr_ev_new, fetch_fr_ev_path_from_ckpt_path
+from src.utils.post_training import extract_model_brainscore_acts_with_neural, fr_ev_new, fetch_fr_ev_path_from_ckpt_path, fetch_full_args_from_ckpt_path
 import numpy as np
 import argparse
 from src.utils.construct_df import construct_df
@@ -80,7 +80,10 @@ if __name__ == "__main__":
     for idx, row in df.iterrows():
         ckpt_path = row["ckpt_path"]
         try:
-            r_ev_path, f_ev_path = fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=True)
+            if row["version"] != "fixed alpha_loss_04042026":
+                print(f"Skipping {ckpt_path} due to older version.")
+                continue
+            r_ev_path, f_ev_path = fetch_fr_ev_path_from_ckpt_path(ckpt_path)
             print(f"Found existing EV paths for {ckpt_path}: {r_ev_path}, {f_ev_path}")
         except FileNotFoundError:
             try:
