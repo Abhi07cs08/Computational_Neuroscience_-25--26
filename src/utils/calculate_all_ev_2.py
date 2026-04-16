@@ -25,7 +25,7 @@ def fr_ev(ckpt_path, folder=None, neural_data_dir="src/latest_neural_data/majajh
 
     if folder is None:
         folder = ckpt_path.split("/")[:-1]
-    if not os.path.exists(os.path.join("/".join(folder), "reverse_ev.npy")):
+    if not os.path.exists(os.path.join(folder, "reverse_ev.npy")):
         compute_monkey_to_model(
             model_features=model_acts,
             rates =neural_acts,
@@ -33,10 +33,10 @@ def fr_ev(ckpt_path, folder=None, neural_data_dir="src/latest_neural_data/majajh
             max_n=None,
             reps=20,
             out_name="reverse_ev.npy",)
-        print(f"Saved reverse EV to {os.path.join('/'.join(folder), 'reverse_ev.npy')}")
+        print(f"Saved reverse EV to {os.path.join(folder, 'reverse_ev.npy')}")
     else:
-        print(f"Reverse EV already exists at {os.path.join('/'.join(folder), 'reverse_ev.npy')}")
-    if not os.path.exists(os.path.join("/".join(folder), "forward_ev.npy")):
+        print(f"Reverse EV already exists at {os.path.join(folder, 'reverse_ev.npy')}")
+    if not os.path.exists(os.path.join(folder, "forward_ev.npy")):
         compute_model_to_monkey(
             rates=neural_acts,
             model_features=model_acts,
@@ -44,11 +44,11 @@ def fr_ev(ckpt_path, folder=None, neural_data_dir="src/latest_neural_data/majajh
             max_n=None,
             reps=20,
             out_name="forward_ev.npy",)
-        print(f"Saved forward EV to {os.path.join('/'.join(folder), 'forward_ev.npy')}")
+        print(f"Saved forward EV to {os.path.join(folder, 'forward_ev.npy')}")
     else:
-        print(f"Forward EV already exists at {os.path.join('/'.join(folder), 'forward_ev.npy')}")
-    r_ev_path = os.path.join("/".join(folder), "reverse_ev.npy")
-    f_ev_path = os.path.join("/".join(folder), "forward_ev.npy")
+        print(f"Forward EV already exists at {os.path.join(folder, 'forward_ev.npy')}")
+    r_ev_path = os.path.join(folder, "reverse_ev.npy")
+    f_ev_path = os.path.join(folder, "forward_ev.npy")
     return r_ev_path, f_ev_path
 
 def calculate_ev_mean(ev_path):
@@ -76,22 +76,43 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     scratch_path = Path(args.mega_folder)
-    model_paths = []
-    for root, dirs, files in os.walk(scratch_path):
-        if os.path.basename(root) == "ckpts":
+    df = construct_df(scratch_path)
+    for idx, row in df.iterrows():
+        ckpt_path = row["ckpt_path"]
+        csv_path = row["csv_path"]
+        ckpt_path = Path(ckpt_path)
+        csv_path = Path(csv_path)
+
+        ev_path = ckpt_path.parent/ "neural_predictivity"
+        if not ev_path.exists():
+            ev_path.mkdir(parents=True, exist_ok=True)
+        try:            
+            r_ev_path, f_ev_path = fr_ev(ckpt_path, folder = ev_path, neural_data_dir=args.neural_data_dir)
+            r_ev_mean = calculate_ev_mean(r_ev_path)
+            f_ev_mean = calculate_ev_mean(f_ev_path)
             try:
-                folder = os.path.dirname(root)
-                ckpt_path = os.path.join(root, "simclr/last.pt")
-                csv_path = os.path.join(folder, "logs/simclr_baseline.csv")
-                ev_path = os.path.join(folder, "neural_predictivity")
-                if not os.path.exists(csv_path) or not os.path.exists(ckpt_path):
-                    print(f"Missing files in {root}, skipping.")
-                    continue
-                if not os.path.exists(ev_path):
-                    os.makedirs(ev_path)
-                r_ev_path, f_ev_path = fr_ev(ckpt_path, folder = ev_path, neural_data_dir=args.neural_data_dir)
-                r_ev_mean = calculate_ev_mean(r_ev_path)
-                f_ev_mean = calculate_ev_mean(f_ev_path)
                 add_frev_to_csv(csv_path, f_ev_mean, r_ev_mean)
             except Exception as e:
-                print(f"Error processing {root}: {e}")
+                print(f"Error adding EV to CSV for {csv_path}: {e}")
+        except Exception as e:            
+            print(f"Error processing {ckpt_path}: {e}")
+            continue
+    # model_paths = []
+    # for root, dirs, files in os.walk(scratch_path):
+    #     if os.path.basename(root) == "ckpts":
+    #         try:
+    #             folder = os.path.dirname(root)
+    #             ckpt_path = os.path.join(root, "simclr/last.pt")
+    #             csv_path = os.path.join(folder, "logs/simclr_baseline.csv")
+    #             ev_path = os.path.join(folder, "neural_predictivity")
+    #             if not os.path.exists(csv_path) or not os.path.exists(ckpt_path):
+    #                 print(f"Missing files in {root}, skipping.")
+    #                 continue
+    #             if not os.path.exists(ev_path):
+    #                 os.makedirs(ev_path)
+    #             r_ev_path, f_ev_path = fr_ev(ckpt_path, folder = ev_path, neural_data_dir=args.neural_data_dir)
+    #             r_ev_mean = calculate_ev_mean(r_ev_path)
+    #             f_ev_mean = calculate_ev_mean(f_ev_path)
+    #             add_frev_to_csv(csv_path, f_ev_mean, r_ev_mean)
+    #         except Exception as e:
+    #             print(f"Error processing {root}: {e}")

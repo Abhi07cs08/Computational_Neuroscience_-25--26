@@ -774,7 +774,7 @@ def main(args=None):
                         layer_name=args.neural_ev_layer,  # Auto-detect
                         batch_size=32
                     )
-                f_ev, r_ev = forward_ev(model_activations, neural_activations, unrevamped=True), reverse_ev(model_activations, neural_activations)
+                f_ev, r_ev = forward_ev(model_activations, neural_activations, unrevamped=True), reverse_ev(model_activations, neural_activations, unrevamped=True)
                 bpi = 2*f_ev*r_ev/(f_ev + r_ev + 1e-12)
                 
                 # ev_dict = F_R_EV(
