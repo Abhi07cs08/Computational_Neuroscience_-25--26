@@ -54,8 +54,8 @@ def objective(trial):
     #         args.target_alpha = trial.suggest_float(f"target_alpha_{args.target_alpha_min}_{args.target_alpha_max}_{args.target_alpha_step}", args.target_alpha_min, args.target_alpha_max, step=args.target_alpha_step)
     #     args.tag += "_tuning_target_alpha"
     #     print(f"target_alpha: {args.target_alpha}")
-    args.spectral_loss_coeff = trial.suggest_categorical("spectral_loss_coeff", search_space["spectral_loss_coeff"])
-    args.target_alpha = trial.suggest_categorical("target_alpha", search_space["target_alpha"])
+    args.spectral_loss_coeff = trial.suggest_categorical("spectral_loss_coeff", [2.0, 3.0,])
+    args.target_alpha = trial.suggest_categorical("target_alpha", [1.0, 1.25, 1.5, 2.5])
 
     # kwargs = {"imagenet_root": args.imagenet_root, "epochs": args.epochs, "batch_size": args.batch_size,
     #         "img_size": args.image_size, "tau": args.tau, "lr": args.lr, "wd": args.wd, "workers": args.workers, "accum_steps": args.accum_steps,
@@ -74,3 +74,5 @@ def objective(trial):
 
 
 study.optimize(objective, n_trials=1)
+
+# python -u scripts/hpo_train_grid.py --optuna_db grid_search_alpha_bands_retry --optuna_study_name grid_search_alpha_bands_retry --imagenet_root IMGNET --epochs 200 --batch_size 512 --save_dir "Local_May/sk_logs_spec_loss_optuna_grid" --tau 0.2 --lr 0.1 --eval_every 0 --spectral_loss_warmup_epochs 10 --wd 1e-6 --workers 16 --lp_epochs 5 --lp_lr 0.1 --amp --seed 0  --neural_data_dir "src/latest_neural_data/majajhong_cache" --skip_ssl_val
