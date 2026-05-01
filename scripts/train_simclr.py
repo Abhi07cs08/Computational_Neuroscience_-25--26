@@ -513,6 +513,8 @@ def main(args=None):
     if args.use_debiased and (teacher is None):
         raise ValueError("--use_debiased requires --use_ema_teacher (EMA teacher not enabled)")
 
+    if args.parallel:
+        args.neural_ev_layer = f"module.{args.neural_ev_layer}"
     activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
     activationclass.register_hooks()
     print(f"Registered activation layers: {activationclass.layers}")
