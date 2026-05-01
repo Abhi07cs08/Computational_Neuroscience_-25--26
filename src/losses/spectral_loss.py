@@ -95,7 +95,7 @@ def just_alpha_fixed(activation, device=None, n_components=40, bounds=(5, 15), e
         return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
-def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
+def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, alpha_kwargs={}):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset

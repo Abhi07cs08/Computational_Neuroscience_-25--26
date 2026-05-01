@@ -76,6 +76,30 @@ def extract_stats(csv_path):
             last_informative = values
     return last_informative
 
+def write_to_csv_from_csv_path(csv_path, new_data: dict):
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        for key, value in new_data.items():
+            if key in df.columns:
+                df.loc[df.index[-1], key] = value
+            else:
+                df[key] = np.nan
+                df.loc[df.index[-1], key] = value
+        df.to_csv(csv_path, index=False)
+    else:
+        raise FileNotFoundError(f"CSV file not found at {csv_path}")
+
+def write_to_csv_from_ckpt(ckpt_path: str, new_data: dict):
+    csv_path = fetch_csv_path_from_ckpt_path(ckpt_path)
+    data = pd.read_csv(csv_path)
+    for key, value in new_data.items():
+        if key in data.columns:
+            data.loc[data.index[-1], key] = value
+        else:
+            data[key] = np.nan
+            data.loc[data.index[-1], key] = value
+    data.to_csv(csv_path, index=False)
+
 def extract_ckpt_args(ckpt_path, as_args=False):
     ckpt = torch.load(ckpt_path, weights_only=False)
     args = ckpt["args"]
