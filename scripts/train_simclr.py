@@ -515,6 +515,7 @@ def main(args=None):
 
     activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
     activationclass.register_hooks()
+    print(f"Registered activation layers: {activationclass.layers}")
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
     if args.command == "ckpt":
