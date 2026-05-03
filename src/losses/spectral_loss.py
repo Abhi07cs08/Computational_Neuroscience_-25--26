@@ -97,7 +97,37 @@ def just_alpha_fixed(activation, device=None, n_components=40, bounds=(5, 15), e
         return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
-def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, verbose=False):
+
+def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, alpha_kwargs={}):
+    args = extract_ckpt_args(ckpt_path, as_args=True)
+    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
+    base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
+    num_classes = len(base_ds.classes)
+    model = SimCLR()
+    state_dict = extract_model_weights(ckpt_path)
+    model.load_state_dict(state_dict)
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:        device = "cpu"
+    model = model.to(device)
+    for key, value in alpha_kwargs.items():
+        setattr(args, key, value)
+
+    activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
+    activationclass.register_hooks()
+    alphas = []
+    with torch.no_grad():
+        for batch in eval_tr_dl:
+            inputs = batch[0].to(device)
+            _ = model(inputs)
+            a = just_alpha_fixed(activationclass.activations[args.neural_ev_layer], device=device)
+            alphas.append(float(a.detach().float().cpu().item()))
+    avg_alpha = float(np.mean(alphas))
+    return avg_alpha
+
+def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, verbose=False, detach=False):
     ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
     acts_path = f"{ckpt_dir}/imgnet_acts.pt"
     if os.path.exists(acts_path):
@@ -120,7 +150,7 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         else:        device = "cpu"
         model = model.to(device)
 
-        activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
+        activationclass = ModelActivations(model, layers=[args.neural_ev_layer], detach=detach)
         activationclass.register_hooks()
         acts= []
         with torch.no_grad():
@@ -137,8 +167,7 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         if verbose:
             print(f"Saved ImageNet activations to {acts_path}")
         return torch.load(acts_path)
-
-
+    
 def effective_dim_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}):
     # args = extract_ckpt_args(ckpt_path, as_args=True)
     # eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
@@ -171,34 +200,6 @@ def effective_dim_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_roo
     ED = (sum(eigvals)**2) / (sum(eigvals**2) + 1e-12)
     return ED
 
-def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, alpha_kwargs={}):
-    args = extract_ckpt_args(ckpt_path, as_args=True)
-    eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
-    base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
-    num_classes = len(base_ds.classes)
-    model = SimCLR()
-    state_dict = extract_model_weights(ckpt_path)
-    model.load_state_dict(state_dict)
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    else:        device = "cpu"
-    model = model.to(device)
-    for key, value in alpha_kwargs.items():
-        setattr(args, key, value)
-
-    activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
-    activationclass.register_hooks()
-    alphas = []
-    with torch.no_grad():
-        for batch in eval_tr_dl:
-            inputs = batch[0].to(device)
-            _ = model(inputs)
-            a = just_alpha_fixed(activationclass.activations[args.neural_ev_layer], device=device)
-            alphas.append(float(a.detach().float().cpu().item()))
-    avg_alpha = float(np.mean(alphas))
-    return avg_alpha
 
 def just_alpha_brainscore_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
     args = extract_ckpt_args(ckpt_path, as_args=True)

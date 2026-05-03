@@ -1,5 +1,5 @@
 class ModelActivations:
-    def __init__(self, model, layers):
+    def __init__(self, model, layers, detach=False):
         self.model = model
         self.layers = layers
         self.activations = {}
@@ -9,7 +9,7 @@ class ModelActivations:
             def hook(module, inp, out):
                 # store a detached tensor to avoid keeping computation graph
                 try:
-                    self.activations[name] = out
+                    self.activations[name] = out.detach() if self.detach else out
                 except Exception:
                     # out might be a tuple (e.g., some modules); try to detach each element
                     if isinstance(out, (list, tuple)):
