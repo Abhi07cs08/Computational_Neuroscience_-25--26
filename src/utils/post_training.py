@@ -217,7 +217,7 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
     return model_activations, neural_activations
 
 def effective_dim_brainscore_standalone(ckpt_path, stimulus_dir=None):
-    model_activations = extract_model_brainscore_acts(ckpt_path, stimulus_dir=stimulus_dir)
+    model_activations = torch.from_numpy(extract_model_brainscore_acts(ckpt_path, stimulus_dir=stimulus_dir))
     pca = torch.pca_lowrank(model_activations, q=min(40, model_activations.shape[0], model_activations.shape[1]))
     eigvals = pca[1]**2
     eigvals = eigvals / (torch.sum(eigvals) + 1e-12)
