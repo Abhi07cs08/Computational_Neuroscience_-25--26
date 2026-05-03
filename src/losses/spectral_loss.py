@@ -169,7 +169,7 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         torch.save(acts, acts_path)
         if verbose:
             print(f"Saved ImageNet activations to {acts_path}")
-        return torch.load(acts_path)
+        return acts
     
 def effective_dim_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}):
     # args = extract_ckpt_args(ckpt_path, as_args=True)
