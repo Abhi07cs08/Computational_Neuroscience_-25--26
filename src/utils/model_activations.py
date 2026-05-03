@@ -28,6 +28,7 @@ class ModelActivations:
                         self.layers.append(layer)
                     handle = module.register_forward_hook(self._save_activation(name))
                     self.handles.append(handle)
+                    print(f"Registered hook for layer: {name}")
             else:
                 if name in self.layers:
                     handle = module.register_forward_hook(self._save_activation(name))

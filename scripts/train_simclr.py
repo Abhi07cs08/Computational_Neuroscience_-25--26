@@ -244,6 +244,8 @@ def parse_args(ap=None):
     ap.add_argument("--imagenet_root", type=str, required=False)
     ap.add_argument("--cifar10_root", type=str, required=False)
 
+    ap.add_argument("--parallel", action="store_true", help="Use torch.nn.DataParallel (not recommended)")
+
     ap.add_argument("--tag", type=str, default="", help="Optional tag to identify the run (appended to save_dir)")
 
     # core
@@ -492,6 +494,8 @@ def main(args=None):
     if args.command == "ckpt":
         model.load_state_dict(ckpt["model"])
 
+    if args.parallel:
+        model = torch.nn.DataParallel(model)
     # EMA teacher setup (full model: encoder + proj)
     teacher = None
     if args.use_ema_teacher:
@@ -509,8 +513,11 @@ def main(args=None):
     if args.use_debiased and (teacher is None):
         raise ValueError("--use_debiased requires --use_ema_teacher (EMA teacher not enabled)")
 
+    if args.parallel:
+        args.neural_ev_layer = f"module.{args.neural_ev_layer}"
     activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
     activationclass.register_hooks()
+    print(f"Registered activation layers: {activationclass.layers}")
 
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
     if args.command == "ckpt":

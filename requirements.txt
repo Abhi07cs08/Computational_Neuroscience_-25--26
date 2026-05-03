@@ -12,3 +12,4 @@ ax-platform
 rich
 kaggle
 scipy
+optuna

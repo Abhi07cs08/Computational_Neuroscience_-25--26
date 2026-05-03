@@ -1,3 +1,5 @@
+import os
+
 from src.latest_neural_data.model_acts import extract_model_activations_from_cache
 import torch
 import numpy as np
@@ -95,7 +97,77 @@ def just_alpha_fixed(activation, device=None, n_components=40, bounds=(5, 15), e
         return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
-def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3}, alpha_kwargs={}):
+def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}):
+    ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
+    acts_path = f"{ckpt_dir}/imgnet_acts.pt"
+    if os.path.exists(acts_path):
+        print(f"ImageNet activations already exist at {acts_path}, loading...")
+        return torch.load(acts_path)
+    else:
+        acts_path = f"{ckpt_dir}/imgnet_acts.pt"        
+        args = extract_ckpt_args(ckpt_path, as_args=True)
+        eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
+        base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
+        num_classes = len(base_ds.classes)
+        model = SimCLR()
+        state_dict = extract_model_weights(ckpt_path)
+        model.load_state_dict(state_dict)
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:        device = "cpu"
+        model = model.to(device)
+
+        activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
+        activationclass.register_hooks()
+        acts= []
+        with torch.no_grad():
+            for batch in eval_tr_dl:
+                inputs = batch[0].to(device)
+                _ = model(inputs)
+                acts.append(activationclass.activations[args.neural_ev_layer].detach().cpu())
+        acts = torch.cat(acts, dim=0)
+        ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
+        acts_path = f"{ckpt_dir}/imgnet_acts.pt"
+        torch.save(acts, acts_path)
+        print(f"Saved ImageNet activations to {acts_path}")
+        return torch.load(acts_path)
+
+
+def effective_dim_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}):
+    # args = extract_ckpt_args(ckpt_path, as_args=True)
+    # eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
+    # base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
+    # num_classes = len(base_ds.classes)
+    # model = SimCLR()
+    # state_dict = extract_model_weights(ckpt_path)
+    # model.load_state_dict(state_dict)
+    # if torch.cuda.is_available():
+    #     device = "cuda"
+    # elif torch.backends.mps.is_available():
+    #     device = "mps"
+    # else:        device = "cpu"
+    # model = model.to(device)
+    # for key, value in alpha_kwargs.items():
+    #     setattr(args, key, value)
+    # activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
+    # activationclass.register_hooks()
+    # acts= []
+    # with torch.no_grad():
+    #     for batch in eval_tr_dl:
+    #         inputs = batch[0].to(device)
+    #         _ = model(inputs)
+    #         acts.append(activationclass.activations[args.neural_ev_layer].detach().cpu())
+    # acts = torch.cat(acts, dim=0)
+    acts = obtain_imgnet_acts(ckpt_path, dl_kwargs=dl_kwargs)
+    pca = torch.pca_lowrank(acts.float(), q=min(40, acts.shape[0], acts.shape[1]))
+    eigvals = pca[1]**2
+    eigvals = eigvals / (torch.sum(eigvals) + 1e-12)
+    ED = (sum(eigvals)**2) / (sum(eigvals**2) + 1e-12)
+    return ED
+
+def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, alpha_kwargs={}):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     eval_tr_dl, eval_va_dl = extract_val_dl_from_ckpt(ckpt_path, kwargs=dl_kwargs)
     base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array 1-25%25
+#SBATCH --array 1-8%8
 #SBATCH --job-name=hpo_optuna_grid
 #SBATCH --time 20:00:00
 

@@ -76,6 +76,30 @@ def extract_stats(csv_path):
             last_informative = values
     return last_informative
 
+def write_to_csv_from_csv_path(csv_path, new_data: dict):
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        for key, value in new_data.items():
+            if key in df.columns:
+                df.loc[df.index[-1], key] = value
+            else:
+                df[key] = np.nan
+                df.loc[df.index[-1], key] = value
+        df.to_csv(csv_path, index=False)
+    else:
+        raise FileNotFoundError(f"CSV file not found at {csv_path}")
+
+def write_to_csv_from_ckpt(ckpt_path: str, new_data: dict):
+    csv_path = fetch_csv_path_from_ckpt_path(ckpt_path)
+    data = pd.read_csv(csv_path)
+    for key, value in new_data.items():
+        if key in data.columns:
+            data.loc[data.index[-1], key] = value
+        else:
+            data[key] = np.nan
+            data.loc[data.index[-1], key] = value
+    data.to_csv(csv_path, index=False)
+
 def extract_ckpt_args(ckpt_path, as_args=False):
     ckpt = torch.load(ckpt_path, weights_only=False)
     args = ckpt["args"]
@@ -192,9 +216,10 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
         )
     return model_activations, neural_activations
 
-def fr_ev_new(ckpt_path, old_style=False):
+def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
-    neural_data_dir = args["neural_data_dir"]
+    if neural_data_dir is None:
+        neural_data_dir = args["neural_data_dir"]
     model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=neural_data_dir)
     print(f"Extracted model activations with shape {model_acts.shape} and neural activations with shape {neural_acts.shape}")
     r_ev_path, f_ev_path= fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=True)
@@ -235,12 +260,12 @@ def plot_ev_graph(r_ev, f_ev, bins_num=50, title="Histogram of Explained Varianc
     r_mean = np.nanmean(r_ev)
     f_mean = np.nanmean(f_ev)
     plt.figure(figsize=(8, 5))
-    plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True, label="r_ev")
-    plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True, label="f_ev")
-    plt.axvline(r_mean, color="navy", linestyle="--", linewidth=2, label=f"Reverse EV: {r_mean:.2f}")
-    plt.axvline(f_mean, color="darkgreen", linestyle="--", linewidth=2, label=f"Forward EV: {f_mean:.2f}")
+    plt.hist(r_ev, bins=bins, color="steelblue", edgecolor="black", alpha=0.8, density=True, label="R-EV")
+    plt.hist(f_ev, bins=bins, color="green", edgecolor="black", alpha=0.6, density=True, label="F-EV")
+    plt.axvline(r_mean, color="navy", linestyle="--", linewidth=2, label=f"Mean Reverse EV: {int(r_mean)}")
+    plt.axvline(f_mean, color="darkgreen", linestyle="--", linewidth=2, label=f"Mean Forward EV: {int(f_mean)}",)
     plt.title(title)
-    plt.xlabel("Explained Variance")
+    plt.xlabel("Forward & Reverse Explained Variance")
     plt.ylabel("Units")
     plt.grid(axis="y", alpha=0.3)
     plt.legend()
