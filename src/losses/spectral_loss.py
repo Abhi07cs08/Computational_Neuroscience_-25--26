@@ -97,11 +97,12 @@ def just_alpha_fixed(activation, device=None, n_components=40, bounds=(5, 15), e
         return alpha if device is None else alpha.to(device), eigvals
     return alpha if device is None else alpha.to(device)
 
-def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}):
+def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, verbose=False):
     ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
     acts_path = f"{ckpt_dir}/imgnet_acts.pt"
     if os.path.exists(acts_path):
-        print(f"ImageNet activations already exist at {acts_path}, loading...")
+        if verbose:
+            print(f"ImageNet activations already exist at {acts_path}, loading...")
         return torch.load(acts_path)
     else:
         acts_path = f"{ckpt_dir}/imgnet_acts.pt"        
@@ -123,7 +124,9 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         activationclass.register_hooks()
         acts= []
         with torch.no_grad():
-            for batch in eval_tr_dl:
+            for i, batch in enumerate(eval_tr_dl):
+                if verbose and i % 10 == 0:
+                    print(f"Processing batch {i}/{len(eval_tr_dl)} for ImageNet activations...")
                 inputs = batch[0].to(device)
                 _ = model(inputs)
                 acts.append(activationclass.activations[args.neural_ev_layer].detach().cpu())
@@ -131,7 +134,8 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
         acts_path = f"{ckpt_dir}/imgnet_acts.pt"
         torch.save(acts, acts_path)
-        print(f"Saved ImageNet activations to {acts_path}")
+        if verbose:
+            print(f"Saved ImageNet activations to {acts_path}")
         return torch.load(acts_path)
 
 
