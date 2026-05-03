@@ -127,7 +127,7 @@ def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet
     avg_alpha = float(np.mean(alphas))
     return avg_alpha
 
-def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, verbose=False, detach=False):
+def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, verbose=False, detach=False, compress=False):
     ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
     acts_path = f"{ckpt_dir}/imgnet_acts.pt"
     if os.path.exists(acts_path):
@@ -159,7 +159,10 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
                     print(f"Processing batch {i}/{len(eval_tr_dl)} for ImageNet activations...")
                 inputs = batch[0].to(device)
                 _ = model(inputs)
-                acts.append(activationclass.activations[args.neural_ev_layer].detach().cpu())
+                act = activationclass.activations[args.neural_ev_layer].detach().cpu()
+                if compress:
+                    act = act.to(torch.float16)
+                acts.append(act)
         acts = torch.cat(acts, dim=0)
         ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
         acts_path = f"{ckpt_dir}/imgnet_acts.pt"
