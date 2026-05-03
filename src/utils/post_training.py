@@ -222,7 +222,7 @@ def effective_dim_brainscore_standalone(ckpt_path, stimulus_dir=None):
     eigvals = pca[1]**2
     eigvals = eigvals / (torch.sum(eigvals) + 1e-12)
     ED = (sum(eigvals)**2) / (sum(eigvals**2) + 1e-12)
-    return ED
+    return ED.item()
 
 def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
