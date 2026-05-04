@@ -250,6 +250,7 @@ def parse_args(ap=None):
 
     # core
     ap.add_argument("--epochs", type=int, default=200)
+    ap.add_argument("--max_epochs", type=int, default=200)
     ap.add_argument("--batch_size", type=int, default=256)
     ap.add_argument("--img_size", type=int, default=224)
     ap.add_argument("--tau", type=float, default=0.2)
@@ -356,7 +357,7 @@ def main(args=None):
                     setattr(args, k, v)
         epochs_completed = ckpt.get("epoch", 0)
         print(f"number of more epochs to train: {args.more_epochs}")
-        args.epochs = epochs_completed + args.more_epochs
+        args.epochs = min(epochs_completed + args.more_epochs, args.max_epochs)
         print(f"epochs completed: {epochs_completed}, total epochs now: {args.epochs}") 
         print(f"Resuming from checkpoint {args.ckpt_path}, continuing to epoch {epochs_completed + 1}")
         save_dir = os.path.dirname(os.path.dirname(os.path.dirname(args.ckpt_path)))
@@ -513,7 +514,7 @@ def main(args=None):
     if args.use_debiased and (teacher is None):
         raise ValueError("--use_debiased requires --use_ema_teacher (EMA teacher not enabled)")
 
-    if args.parallel:
+    if args.parallel and not args.neural_ev_layer.startswith("module."):
         args.neural_ev_layer = f"module.{args.neural_ev_layer}"
     activationclass = ModelActivations(model, layers=[args.neural_ev_layer])
     activationclass.register_hooks()
