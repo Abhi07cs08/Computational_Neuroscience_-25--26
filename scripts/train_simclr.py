@@ -354,6 +354,10 @@ def main(args=None):
         for k, v in ckpt_args.items():
             if hasattr(args, k):
                 if k not in ["epochs", "imagenet_root", "more_epochs", "ckpt_path"]:
+                    if v == "True":
+                        v = True
+                    elif v == "False":
+                        v = False
                     setattr(args, k, v)
         epochs_completed = ckpt.get("epoch", 0)
         print(f"number of more epochs to train: {args.more_epochs}")
