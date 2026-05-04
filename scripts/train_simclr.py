@@ -186,6 +186,7 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
       - "z": projection output (matches old model(q))
       - "h": encoder features
     """
+    global args
     model.eval()
     ys = []
     it = 0
@@ -198,8 +199,8 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
             x = batch
 
         x = x[:max_per_batch].to(device, non_blocking=True).contiguous()
-
-        h = model.encoder(x)
+        model_encoder = model.module.encoder if isinstance(model, torch.nn.DataParallel) else model.encoder
+        h = model_encoder(x)
         if use == "z":
             y = model.proj(h)
             y = F.normalize(y, dim=1)
@@ -760,13 +761,14 @@ def main(args=None):
         r_ev = 0.0
 
         if do_eval:
+            model_enc = model.module.encoder if args.parallel else model.encoder
             if not args.skip_knn:
-                knn_acc = knn_top1(model.encoder, eval_tr_dl, eval_va_dl, device=device, k=1)
+                knn_acc = knn_top1(model_enc, eval_tr_dl, eval_va_dl, device=device, k=1)
                 print(f"epoch {epoch+1} | kNN(1) top1 {knn_acc:.2f}%")
 
             if not args.skip_linear_probe:
                 lp_acc = linear_probe_top1(
-                    model.encoder, eval_tr_dl, eval_va_dl, num_classes=num_classes,
+                    model_enc, eval_tr_dl, eval_va_dl, num_classes=num_classes,
                     device=device, epochs=args.lp_epochs, lr=args.lp_lr, wd=args.lp_wd
                 )
                 print(f"epoch {epoch+1} | linear probe top1 {lp_acc:.2f}%")
