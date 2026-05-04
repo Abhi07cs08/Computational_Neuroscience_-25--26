@@ -20,7 +20,7 @@ export PYTHONPATH="/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26":
 
 
 target_alpha="${1-1.0}"
-spectral_loss_coeff="${2-0.02}"
+spectral_loss_coeff="${2-2.0}"
 echo "Target Alpha: $target_alpha"
 echo "Spectral Loss Coefficient: $spectral_loss_coeff"
 more_args=${3-"--parallel --skip_ssl_val"}
