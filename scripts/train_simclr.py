@@ -200,9 +200,10 @@ def spectrum_pr(model, dl, device, batches=2, max_per_batch=64, use="z"):
 
         x = x[:max_per_batch].to(device, non_blocking=True).contiguous()
         model_encoder = model.module.encoder if isinstance(model, torch.nn.DataParallel) else model.encoder
+        model_proj = model.module.proj if isinstance(model, torch.nn.DataParallel) else model.proj
         h = model_encoder(x)
         if use == "z":
-            y = model.proj(h)
+            y = model_proj(h)
             y = F.normalize(y, dim=1)
         else:
             y = F.normalize(h, dim=1)
