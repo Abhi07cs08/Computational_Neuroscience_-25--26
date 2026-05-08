@@ -157,6 +157,7 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         except Exception as e:
             model = SimCLR()
             model = ModuleWrapper(model)
+            print("Attempting to load state dict with ModuleWrapper...")
             model.load_state_dict(state_dict)
         if torch.cuda.is_available():
             device = "cuda"
