@@ -150,7 +150,9 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         state_dict = extract_model_weights(ckpt_path)
         try:
             model.load_state_dict(state_dict)
+            print("Loaded state dict without ModuleWrapper.")
         except Exception as e:
+            model = SimCLR()
             model = ModuleWrapper(model)
             model.load_state_dict(state_dict)
         if torch.cuda.is_available():
