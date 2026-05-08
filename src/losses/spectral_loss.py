@@ -149,6 +149,7 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         model = SimCLR()
         state_dict = extract_model_weights(ckpt_path)
         try:
+            print("Attempting to load state dict without ModuleWrapper...")
             model.load_state_dict(state_dict)
             print("Loaded state dict without ModuleWrapper.")
         except Exception as e:
