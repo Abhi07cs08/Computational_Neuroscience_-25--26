@@ -126,7 +126,13 @@ def just_alpha_imgnet_standalone(ckpt_path, dl_kwargs = {"workers": 3, "imagenet
             alphas.append(float(a.detach().float().cpu().item()))
     avg_alpha = float(np.mean(alphas))
     return avg_alpha
+class ModuleWrapper(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.module = model
 
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
 def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/path/to/imagenet"}, verbose=False, detach=False, compress=False):
     ckpt_dir = "/".join(ckpt_path.split("/")[:-1])
     acts_path = f"{ckpt_dir}/imgnet_acts.pt"
@@ -142,7 +148,11 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         num_classes = len(base_ds.classes)
         model = SimCLR()
         state_dict = extract_model_weights(ckpt_path)
-        model.load_state_dict(state_dict)
+        try:
+            model.load_state_dict(state_dict)
+        except Exception as e:
+            model = ModuleWrapper(model)
+            model.load_state_dict(state_dict)
         if torch.cuda.is_available():
             device = "cuda"
         elif torch.backends.mps.is_available():
