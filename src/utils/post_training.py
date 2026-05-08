@@ -72,9 +72,17 @@ def extract_stats(csv_path):
     last_informative = {}
     for i in range(len(data)):
         values = dict(data.iloc[i])
-        if values["F_EV"] != 0.0:
-            last_informative = values
+        last_informative = values
     return last_informative
+
+# def extract_stats(csv_path):
+#     data = pd.read_csv(csv_path)
+#     last_informative = {}
+#     for i in range(len(data)):
+#         values = dict(data.iloc[i])
+#         if values["F_EV"] != 0.0:
+#             last_informative = values
+#     return last_informative
 
 def write_to_csv_from_csv_path(csv_path, new_data: dict):
     if os.path.exists(csv_path):
