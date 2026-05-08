@@ -148,6 +148,7 @@ def obtain_imgnet_acts(ckpt_path, dl_kwargs = {"workers": 3, "imagenet_root": "/
         base_ds = eval_tr_dl.dataset.dataset if hasattr(eval_tr_dl.dataset, "dataset") else eval_tr_dl.dataset
         num_classes = len(base_ds.classes)
         model = SimCLR()
+        print(f"Extracting model weights from checkpoint at {ckpt_path}...")
         state_dict = extract_model_weights(ckpt_path)
         try:
             print("Attempting to load state dict without ModuleWrapper...")
