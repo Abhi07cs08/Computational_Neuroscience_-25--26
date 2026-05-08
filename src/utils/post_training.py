@@ -175,11 +175,24 @@ def df_from_root_dir(root_dir):
     df = df_from_model_paths(model_paths)
     return df
 
+class ModuleWrapper(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.module = model
+
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
+
 def extract_model_brainscore_acts(ckpt_path, stimulus_dir=None):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     model = SimCLR()
     state_dict = extract_model_weights(ckpt_path)
-    model.load_state_dict(state_dict)
+    try:
+        model.load_state_dict(state_dict)
+    except Exception as e:
+        model = SimCLR()
+        model = ModuleWrapper(model)
+        model.load_state_dict(state_dict)
     if torch.cuda.is_available():
         device = "cuda"
     elif torch.backends.mps.is_available():
@@ -203,7 +216,12 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     model = SimCLR()
     state_dict = extract_model_weights(ckpt_path)
-    model.load_state_dict(state_dict)
+    try:
+        model.load_state_dict(state_dict)
+    except Exception as e:
+        model = SimCLR()
+        model = ModuleWrapper(model)
+        model.load_state_dict(state_dict)
     if torch.cuda.is_available():
         device = "cuda"
     elif torch.backends.mps.is_available():
