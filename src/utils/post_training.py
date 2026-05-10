@@ -36,12 +36,16 @@ def fetch_full_args_from_ckpt_path(ckpt_path):
             args[k] = value
     return args
 
-def fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=False):
+def fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=False, subset=None):
     parent_folder = os.path.dirname(ckpt_path)
     parent_folder = os.path.dirname(parent_folder)
     parent_folder = os.path.dirname(parent_folder)
-    rev_path = os.path.join(parent_folder, "logs/neural_predictivity/reverse_ev.npy")
-    fev_path = os.path.join(parent_folder, "logs/neural_predictivity/forward_ev.npy")
+    if subset is not None:
+        rev_path = os.path.join(parent_folder, f"logs/neural_predictivity/reverse_ev_{subset}.npy")
+        fev_path = os.path.join(parent_folder, f"logs/neural_predictivity/forward_ev_{subset}.npy")
+    else:
+        rev_path = os.path.join(parent_folder, "logs/neural_predictivity/reverse_ev.npy")
+        fev_path = os.path.join(parent_folder, "logs/neural_predictivity/forward_ev.npy")
     if os.path.exists(rev_path) and os.path.exists(fev_path):
         return rev_path, fev_path
     else:
@@ -49,8 +53,8 @@ def fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=False):
             raise FileNotFoundError(f"Reverse or forward EV file not found at {rev_path} or {fev_path}")
         return rev_path, fev_path
 
-def fetch_ev_arrs_from_ckpt_path(ckpt_path):
-    rev_path, fev_path = fetch_fr_ev_path_from_ckpt_path(ckpt_path)
+def fetch_ev_arrs_from_ckpt_path(ckpt_path, subset=None):
+    rev_path, fev_path = fetch_fr_ev_path_from_ckpt_path(ckpt_path, subset=subset)
     r_ev = np.load(rev_path)
     f_ev = np.load(fev_path)
     return r_ev, f_ev
