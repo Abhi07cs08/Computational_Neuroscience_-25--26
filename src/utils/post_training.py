@@ -250,7 +250,20 @@ def effective_dim_brainscore_standalone(ckpt_path, stimulus_dir=None):
     ED = (sum(eigvals)**2) / (sum(eigvals**2) + 1e-12)
     return ED.item()
 
-def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None):
+def common_subset(ckpt_path):
+    f_ev, r_ev = fetch_ev_arrs_from_ckpt_path(ckpt_path)
+    n_top = int(0.2*len(r_ev))
+    top_idx = np.argsort(r_ev)[-n_top:]
+    return top_idx
+
+def unique_subset(ckpt_path):
+    f_ev, r_ev = fetch_ev_arrs_from_ckpt_path(ckpt_path)
+    n_bottom = int(0.2*len(r_ev))
+    bottom_idx = np.argsort(r_ev)[:n_bottom]
+    return bottom_idx
+    
+
+def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, subset_array=None):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
     if neural_data_dir is None:
         neural_data_dir = args["neural_data_dir"]
@@ -261,6 +274,12 @@ def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None):
     parent_fev = os.path.dirname(f_ev_path)
     os.makedirs(parent_rev, exist_ok=True)
     os.makedirs(parent_fev, exist_ok=True)
+    if subset is not None and subset_array is not None:
+        neural_acts = neural_acts[:, subset_array, :]
+        r_ev_path = r_ev_path.replace(".npy", f"_{subset}.npy")
+        f_ev_path = f_ev_path.replace(".npy", f"_{subset}.npy")
+        print(f"Subsetted model activations to shape {model_acts.shape} and neural activations to shape {neural_acts.shape} using subset {subset}")
+
     if old_style:
         r_ev = reverse_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
         np.save(r_ev_path, r_ev)
