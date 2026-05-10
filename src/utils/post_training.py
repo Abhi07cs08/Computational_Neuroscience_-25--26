@@ -251,7 +251,7 @@ def effective_dim_brainscore_standalone(ckpt_path, stimulus_dir=None):
     return ED.item()
 
 def common_subset(ckpt_path):
-    f_ev, r_ev = fetch_ev_arrs_from_ckpt_path(ckpt_path)
+    r_ev, f_ev = fetch_ev_arrs_from_ckpt_path(ckpt_path)
     print(f"Fetched forward EV with shape {f_ev.shape} and reverse EV with shape {r_ev.shape}")
     n_top = int(0.2*len(r_ev))
     top_idx = np.argsort(r_ev)[-n_top:]
@@ -259,7 +259,7 @@ def common_subset(ckpt_path):
     return top_idx
 
 def unique_subset(ckpt_path):
-    f_ev, r_ev = fetch_ev_arrs_from_ckpt_path(ckpt_path)
+    r_ev, f_ev = fetch_ev_arrs_from_ckpt_path(ckpt_path)
     print(f"Fetched forward EV with shape {f_ev.shape} and reverse EV with shape {r_ev.shape}")
     n_bottom = int(0.2*len(r_ev))
     bottom_idx = np.argsort(r_ev)[:n_bottom]
