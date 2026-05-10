@@ -279,7 +279,7 @@ def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, sub
     os.makedirs(parent_rev, exist_ok=True)
     os.makedirs(parent_fev, exist_ok=True)
     if subset is not None and subset_array is not None:
-        neural_acts = neural_acts[:, subset_array, :]
+        model_acts = model_acts[:, subset_array]
         r_ev_path = r_ev_path.replace(".npy", f"_{subset}.npy")
         f_ev_path = f_ev_path.replace(".npy", f"_{subset}.npy")
         print(f"Subsetted model activations to shape {model_acts.shape} and neural activations to shape {neural_acts.shape} using subset {subset}")
