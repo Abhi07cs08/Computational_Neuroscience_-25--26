@@ -65,10 +65,12 @@ def linear_probe_standalone(ckpt_path, dl_kwargs = {"workers": 3}, lp_kwargs={})
     state_dict = extract_model_weights(ckpt_path)
     try:
         model.load_state_dict(state_dict)
+        encoder = model.encoder
     except Exception as e:
         model = SimCLR()
         model = ModuleWrapper(model)
         model.load_state_dict(state_dict)
+        encoder = model.module.encoder
     if torch.cuda.is_available():
         device = "cuda"
     elif torch.backends.mps.is_available():
@@ -77,7 +79,7 @@ def linear_probe_standalone(ckpt_path, dl_kwargs = {"workers": 3}, lp_kwargs={})
     model = model.to(device)
     for key, value in lp_kwargs.items():
         setattr(args, key, value)
-    top1 = linear_probe_top1(model.encoder, eval_tr_dl, eval_va_dl, num_classes=num_classes,
+    top1 = linear_probe_top1(encoder, eval_tr_dl, eval_va_dl, num_classes=num_classes,
                     device=device, epochs=args.lp_epochs, lr=args.lp_lr, wd=args.lp_wd)
     return top1
 
