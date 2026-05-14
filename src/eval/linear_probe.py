@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.utils.post_training import extract_val_dl_from_ckpt, extract_model_weights, extract_ckpt_args
+from src.utils.post_training import ModuleWrapper, extract_val_dl_from_ckpt, extract_model_weights, extract_ckpt_args
 from src.models.simclr_model import SimCLR
 from types import SimpleNamespace
 
@@ -63,7 +63,12 @@ def linear_probe_standalone(ckpt_path, dl_kwargs = {"workers": 3}, lp_kwargs={})
     num_classes = len(base_ds.classes)
     model = SimCLR()
     state_dict = extract_model_weights(ckpt_path)
-    model.load_state_dict(state_dict)
+    try:
+        model.load_state_dict(state_dict)
+    except Exception as e:
+        model = SimCLR()
+        model = ModuleWrapper(model)
+        model.load_state_dict(state_dict)
     if torch.cuda.is_available():
         device = "cuda"
     elif torch.backends.mps.is_available():
