@@ -246,6 +246,7 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None, l
         neural_layer = layer
     else:
         neural_layer = args.neural_ev_layer
+    print(f"using layer {neural_layer}")
 
     model_activations, _, neural_activations = extract_model_activations_from_cache(
             model=model,
