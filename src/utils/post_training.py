@@ -281,7 +281,7 @@ def unique_subset(ckpt_path):
     return bottom_idx
     
 
-def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, subset_array=None, layer = None):
+def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, subset_array=None, layer = None, only_f=False):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
     if neural_data_dir is None:
         neural_data_dir = args["neural_data_dir"]
@@ -299,21 +299,23 @@ def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, sub
         print(f"Subsetted model activations to shape {model_acts.shape} and neural activations to shape {neural_acts.shape} using subset {subset}")
 
     if old_style:
-        r_ev = reverse_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
-        np.save(r_ev_path, r_ev)
-        print(f"Saved reverse EV to {r_ev_path}")
+        if not only_f:
+            r_ev = reverse_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
+            np.save(r_ev_path, r_ev)
+            print(f"Saved reverse EV to {r_ev_path}")
         f_ev = forward_ev(model_acts, neural_acts, full_ev_vector=True, unrevamped=True)
         np.save(f_ev_path, f_ev)
         print(f"Saved forward EV to {f_ev_path}")
     else:
-        compute_monkey_to_model(
-            model_features=model_acts,
-            rates =neural_acts,
-            out_dir=parent_rev,
-            max_n=None,
-            reps=20,
-            out_name=os.path.basename(r_ev_path),)
-        print(f"Saved reverse EV to {os.path.join(parent_rev, os.path.basename(r_ev_path))}")
+        if not only_f:
+            compute_monkey_to_model(
+                model_features=model_acts,
+                rates =neural_acts,
+                out_dir=parent_rev,
+                max_n=None,
+                reps=20,
+                out_name=os.path.basename(r_ev_path),)
+            print(f"Saved reverse EV to {os.path.join(parent_rev, os.path.basename(r_ev_path))}")
         compute_model_to_monkey(
             rates=neural_acts,
             model_features=model_acts,
@@ -322,9 +324,12 @@ def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, sub
             reps=20,
             out_name=os.path.basename(f_ev_path),)
         print(f"Saved forward EV to {os.path.join(parent_fev, os.path.basename(f_ev_path))}")
-    r_ev = np.load(r_ev_path)
     f_ev = np.load(f_ev_path)
-    return r_ev, f_ev
+    if not only_f:
+        r_ev = np.load(r_ev_path)
+        return r_ev, f_ev
+    else:
+        return f_ev
 
 def plot_ev_graph(r_ev, f_ev, bins_num=50, title="Histogram of Explained Variance"):
     bins = np.linspace(0, 100, bins_num)
