@@ -216,7 +216,7 @@ def extract_model_brainscore_acts(ckpt_path, stimulus_dir=None):
         )
     return model_activations
 
-def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
+def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None, layer=None):
     args = extract_ckpt_args(ckpt_path, as_args=True)
     model = SimCLR()
     state_dict = extract_model_weights(ckpt_path)
@@ -236,11 +236,15 @@ def extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=None):
     if neural_data_dir is None:
         neural_data_dir = args.neural_data_dir
 
+    if layer is not None:
+        neural_layer = layer
+    else:
+        neural_layer = args.neural_ev_layer
 
     model_activations, _, neural_activations = extract_model_activations_from_cache(
             model=model,
             cache_dir=neural_data_dir,
-            layer_name=args.neural_ev_layer,
+            layer_name=neural_layer,
             batch_size=32,
             return_neural_activations=True
         )
@@ -271,11 +275,11 @@ def unique_subset(ckpt_path):
     return bottom_idx
     
 
-def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, subset_array=None):
+def fr_ev_new(ckpt_path, old_style=False, neural_data_dir=None, subset=None, subset_array=None, layer = None):
     args =  fetch_full_args_from_ckpt_path(ckpt_path)
     if neural_data_dir is None:
         neural_data_dir = args["neural_data_dir"]
-    model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=neural_data_dir)
+    model_acts, neural_acts = extract_model_brainscore_acts_with_neural(ckpt_path, neural_data_dir=neural_data_dir, layer=layer)
     print(f"Extracted model activations with shape {model_acts.shape} and neural activations with shape {neural_acts.shape}")
     r_ev_path, f_ev_path= fetch_fr_ev_path_from_ckpt_path(ckpt_path, no_err=True)
     parent_rev = os.path.dirname(r_ev_path)
