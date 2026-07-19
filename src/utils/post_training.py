@@ -156,7 +156,10 @@ def to_float(str):
 to_flt = np.vectorize(to_float)
 
 def extract_model_weights(ckpt_path):
-    ckpt = torch.load(ckpt_path, weights_only=False)
+    try:
+        ckpt = torch.load(ckpt_path, weights_only=False)
+    except:
+        ckpt = torch.load(ckpt_path, weights_only=False, map_location=torch.device('cpu'))
     model_weights = ckpt['model']
     return model_weights
 
