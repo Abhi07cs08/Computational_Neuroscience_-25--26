@@ -13,7 +13,7 @@ for cp in df["ckpt_path"].tolist():
         print(f"Missing root checkpoint path: {root_cp}")
     if not (root_cp / "brain_score_acts.pt").exists():
         print(f"Missing brain score acts for: {root_cp}")
-        acts = extract_model_brainscore_acts(cp, "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/stimulus_ids.npy")
+        acts = extract_model_brainscore_acts(cp, "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/")
         torch.save(acts, root_cp / "brain_score_acts.pt")
     else:
         acts = torch.load(root_cp / "brain_score_acts.pt")
