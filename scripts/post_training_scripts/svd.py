@@ -7,7 +7,7 @@ from src.utils.post_training import extract_model_brainscore_acts
 df = construct_df()
 for cp in df["ckpt_path"].tolist():
     print(f"Processing checkpoint: {cp}")
-    root_cp = Path(cp).parent.parent
+    root_cp = Path(cp).parent.parent.parent
     print(f"Root checkpoint path: {root_cp}")
     if not root_cp.exists():
         print(f"Missing root checkpoint path: {root_cp}")
