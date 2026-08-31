@@ -5,7 +5,7 @@ import numpy as np
 from src.utils.post_training import extract_model_brainscore_acts
 
 df = construct_df()
-for cp in df["checkpoint_path"].tolist():
+for cp in df["ckpt_path"].tolist():
     print(f"Processing checkpoint: {cp}")
     root_cp = Path(cp).parent.parent
     print(f"Root checkpoint path: {root_cp}")
