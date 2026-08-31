@@ -5,6 +5,7 @@ import numpy as np
 from src.utils.post_training import extract_model_brainscore_acts
 
 df = construct_df()
+df = df[((df["version"]=="fixed alpha_loss_04042026") & (df["epochs"]>=198) & (df["recomputed_alpha"]<=1.6) & (df["tau"]==0.2) & (df["target_alpha"]<=2))| ((df["spectral_loss_coeff"]==0)& (df["tau"]==0.2))]
 for cp in df["ckpt_path"].tolist():
     print(f"Processing checkpoint: {cp}")
     root_cp = Path(cp).parent.parent.parent
@@ -23,3 +24,4 @@ for cp in df["ckpt_path"].tolist():
         torch.save((Uh, Sh, Vh), root_cp / "brain_score_acts_svd.pt")
     else:
         Uh, Sh, Vh = torch.load(root_cp / "brain_score_acts_svd.pt")
+    
