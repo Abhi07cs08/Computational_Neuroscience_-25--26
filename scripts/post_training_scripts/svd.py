@@ -24,4 +24,4 @@ for cp in df["ckpt_path"].tolist():
         torch.save((Uh, Sh, Vh), root_cp / "brain_score_acts_svd.pt")
     else:
         Uh, Sh, Vh = torch.load(root_cp / "brain_score_acts_svd.pt")
-    
+print("SVD computation completed for all checkpoints.")
