@@ -16,10 +16,11 @@ for cp in df["ckpt_path"].tolist():
         print(f"Missing brain score acts for: {root_cp}")
         acts = extract_model_brainscore_acts(cp, "/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/")
         torch.save(acts, root_cp / "brain_score_acts.pt")
-    else:
-        acts = torch.load(root_cp / "brain_score_acts.pt", weights_only=False)
+        print(f"Saved brain score acts for: {root_cp}")
     if not (root_cp / "brain_score_acts_svd.pt").exists():
         print(f"Missing brain score acts SVD for: {root_cp}")
+        acts = torch.load(root_cp / "brain_score_acts.pt", weights_only=False)
         Uh, Sh, Vh = np.linalg.svd(acts, full_matrices=False)
         torch.save((Uh, Sh, Vh), root_cp / "brain_score_acts_svd.pt")
+        print(f"Saved brain score acts SVD for: {root_cp}")
 print("SVD computation completed for all checkpoints.")
