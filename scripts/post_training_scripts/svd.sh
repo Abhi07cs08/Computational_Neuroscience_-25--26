@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time 24:00:00
-#SBATCH --output=ev_calculator_%j.txt
+#SBATCH --time 05:00:00
+#SBATCH --output=svd_%j.txt
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
 #SBATCH --mail-type=BEGIN,END,FAIL,ALL
