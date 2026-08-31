@@ -10,7 +10,7 @@ from src.utils.post_training import write_to_csv_from_ckpt, fetch_full_args_from
 df = construct_df()
 df = df[((df["version"]=="fixed alpha_loss_04042026") & (df["epochs"]>=198) & (df["recomputed_alpha"]<=1.6) & (df["tau"]==0.2) & (df["target_alpha"]<=2))| ((df["spectral_loss_coeff"]==0)& (df["tau"]==0.2))]
 baseline_cp = "/scratch/kostouso/CompNeuro/Computational_Neuroscience_-25--26/Feb_7_launch/sk_logs_spec_loss_optuna_multi_test/start_20260311-162520_tuning_spectral_loss_coeff/ckpts/simclr/last.pt"
-Ub, Sb, Vhb = torch.load(Path(baseline_cp).parent.parent.parent / "brain_score_acts_svd.pt")
+Ub, Sb, Vhb = torch.load(Path(baseline_cp).parent.parent.parent / "brain_score_acts_svd.pt", weights_only=False)
 neural_acts = np.load("/home/kostouso/CompNeuro/Computational_Neuroscience_-25--26/src/latest_neural_data/majajhong_cache/neural_activations.npy")
 for cp in df["ckpt_path"].tolist():
     root_dir = Path(cp).parent.parent.parent
@@ -27,7 +27,7 @@ for cp in df["ckpt_path"].tolist():
         U, S, Vh = np.linalg.svd(acts, full_matrices=False)
         torch.save((U, S, Vh), root_dir / "brain_score_acts_svd.pt")
     else:
-        U, S, Vh = torch.load(root_dir / "brain_score_acts_svd.pt")
+        U, S, Vh = torch.load(root_dir / "brain_score_acts_svd.pt", weights_only=False)
     if not (root_dir / "brain_score_acts_mutant_r_ev.npy").exists() or not (root_dir / "brain_score_acts_mutant_f_ev.npy").exists():
         print(f"Missing mutant EVs for: {root_dir}")
         og_svd = U @ np.diag(S) @ Vh
