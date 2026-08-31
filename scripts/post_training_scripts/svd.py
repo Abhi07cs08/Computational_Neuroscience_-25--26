@@ -2,7 +2,7 @@ from src.utils.construct_df import construct_df
 import torch
 from pathlib import Path
 import numpy as np
-from utils.post_training import extract_model_brainscore_acts
+from src.utils.post_training import extract_model_brainscore_acts
 
 df = construct_df()
 for cp in df["checkpoint_path"].tolist():
