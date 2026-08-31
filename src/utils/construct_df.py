@@ -70,6 +70,7 @@ def _add_datetime_to_args(args: dict):
     if pd.notna(dt):
         args["datetime"] = dt
 
+
 def construct_df(
     root_path: Path = scratch_path,
     show_progress: bool = True,
