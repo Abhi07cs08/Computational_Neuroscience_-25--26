@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time 05:00:00
+#SBATCH --time 10:00:00
 #SBATCH --output=svd_%j.txt
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
